@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import LanguageSelector from "@/components/LanguageSelector";
-import type { LanguageCode } from "@/lib/languages";
 
 function generateRoomCode(): string {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -16,18 +14,18 @@ function generateRoomCode(): string {
 
 export default function Home() {
   const router = useRouter();
-  const [lang, setLang] = useState<LanguageCode>("ko");
+  const [nick, setNick] = useState("");
   const [roomCode, setRoomCode] = useState("");
 
   function createRoom() {
     const code = generateRoomCode();
-    router.push(`/room/${code}?lang=${lang}`);
+    router.push(`/room/${code}?nick=${encodeURIComponent(nick.trim())}`);
   }
 
   function joinRoom() {
     const code = roomCode.trim().toLowerCase();
     if (!code) return;
-    router.push(`/room/${code}?lang=${lang}`);
+    router.push(`/room/${code}?nick=${encodeURIComponent(nick.trim())}`);
   }
 
   return (
@@ -43,9 +41,16 @@ export default function Home() {
         <div className="space-y-5">
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-600">
-              Language
+              Your name
             </label>
-            <LanguageSelector value={lang} onChange={setLang} />
+            <input
+              type="text"
+              placeholder="Your name"
+              value={nick}
+              onChange={(e) => setNick(e.target.value)}
+              maxLength={32}
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base transition-colors"
+            />
           </div>
 
           <button

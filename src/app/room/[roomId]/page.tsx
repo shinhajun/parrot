@@ -14,6 +14,7 @@ export default function RoomPage() {
 
   const langParam = (searchParams.get("lang") ?? "en") as LanguageCode;
   const validInitialLang: LanguageCode = langParam in LANGUAGES ? langParam : "en";
+  const nickname = searchParams.get("nick") ?? "";
 
   const [selectedLang, setSelectedLang] = useState<LanguageCode>(validInitialLang);
   const [joined, setJoined] = useState(false);
@@ -143,5 +144,5 @@ export default function RoomPage() {
     );
   }
 
-  return <RoomView roomId={roomId} lang={selectedLang} localStream={localStream} initialVoiceId={voiceId} />;
+  return <RoomView roomId={roomId} lang={selectedLang} localStream={localStream} initialVoiceId={voiceId} nickname={nickname} />;
 }

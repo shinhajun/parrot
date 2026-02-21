@@ -20,16 +20,17 @@ interface RoomViewProps {
   lang: LanguageCode;
   localStream: MediaStream;
   initialVoiceId?: string | null;
+  nickname?: string;
 }
 
-export default function RoomView({ roomId, lang, localStream, initialVoiceId }: RoomViewProps) {
+export default function RoomView({ roomId, lang, localStream, initialVoiceId, nickname }: RoomViewProps) {
   const router = useRouter();
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
   const [peerLangs, setPeerLangs] = useState<Map<string, LanguageCode>>(new Map());
   const [peerMuted, setPeerMuted] = useState<Map<string, boolean>>(new Map());
   const [peerCameraOff, setPeerCameraOff] = useState<Map<string, boolean>>(new Map());
   const [locallyMutedPeers, setLocallyMutedPeers] = useState<Set<string>>(new Set());
-
+  const [peerNicknames, setPeerNicknames] = useState<Map<string, string>>(new Map());
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
 
@@ -84,6 +85,13 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId }: 
             return next;
           });
           break;
+        case "nickname":
+          setPeerNicknames((prev) => {
+            const next = new Map(prev);
+            next.set(fromPeerId, msg.name);
+            return next;
+          });
+          break;
         case "voice-ready":
           break;
       }
@@ -97,10 +105,14 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId }: 
   const isCameraOffRef = useRef(isCameraOff);
   isCameraOffRef.current = isCameraOff;
 
+  const nicknameRef = useRef(nickname);
+  nicknameRef.current = nickname;
+
   const handlePeerConnected = useCallback((peerId: string) => {
     sendMessageToPeerRef.current(peerId, { type: "language", lang: langRef.current });
     sendMessageToPeerRef.current(peerId, { type: "mute-status", isMuted: isMutedRef.current });
     sendMessageToPeerRef.current(peerId, { type: "camera-status", isCameraOff: isCameraOffRef.current });
+    sendMessageToPeerRef.current(peerId, { type: "nickname", name: nicknameRef.current ?? "" });
   }, []);
 
   const { remotePeers, isConnected, error, sendMessageToPeer, broadcastMessage } =
@@ -198,7 +210,7 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId }: 
             <VideoPanel
               stream={localStream}
               muted={true}
-              label={`You ${getLanguageFlag(lang)}`}
+              label={`${nickname || "You"} ${getLanguageFlag(lang)}`}
               languageFlag={getLanguageFlag(lang)}
               languageName={getLanguageName(lang)}
               isSpeaking={localIsSpeaking}
@@ -219,7 +231,7 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId }: 
                 <VideoPanel
                   stream={peer.stream}
                   muted={true}
-                  label={peerLang ? `Peer ${getLanguageFlag(peerLang)}` : "Connecting..."}
+                  label={peerLang ? `${peerNicknames.get(peer.peerId) || "Peer"} ${getLanguageFlag(peerLang)}` : "Connecting..."}
                   languageFlag={peerLang ? getLanguageFlag(peerLang) : undefined}
                   languageName={peerLang ? getLanguageName(peerLang) : undefined}
                   isSpeaking={false}

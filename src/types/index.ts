@@ -6,7 +6,8 @@ export type DataChannelMessage =
   | { type: "language"; lang: LanguageCode }
   | { type: "voice-ready"; voiceId: string }
   | { type: "mute-status"; isMuted: boolean }
-  | { type: "camera-status"; isCameraOff: boolean };
+  | { type: "camera-status"; isCameraOff: boolean }
+  | { type: "nickname"; name: string };
 
 export interface TranslateRequest {
   audioBase64: string;
