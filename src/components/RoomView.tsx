@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { LanguageCode } from "@/lib/languages";
 import { getLanguageFlag, getLanguageName } from "@/lib/languages";
-import type { DataChannelMessage, Subtitle } from "@/types";
+import type { DataChannelMessage, Subtitle, ChatMessage } from "@/types";
 import { useWebRTC } from "@/hooks/useWebRTC";
 import { useVoiceClone } from "@/hooks/useVoiceClone";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -13,8 +13,10 @@ import { useAudioActivity } from "@/hooks/useAudioActivity";
 import VideoPanel from "./VideoPanel";
 import SubtitleOverlay from "./SubtitleOverlay";
 import { ParticipantList, type Participant } from "./ParticipantList";
+import { ChatPanel } from "./ChatPanel";
 import { ControlBar } from "./ControlBar";
 import ConnectionStatus from "./ConnectionStatus";
+import { useChat } from "@/hooks/useChat";
 
 interface RoomViewProps {
   roomId: string;
@@ -34,12 +36,16 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId, ni
   const [peerNicknames, setPeerNicknames] = useState<Map<string, string>>(new Map());
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
+
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const isAnyPanelOpen = isParticipantsOpen || isChatOpen;
 
   const langRef = useRef(lang);
   langRef.current = lang;
 
   const sendMessageToPeerRef = useRef<(peerId: string, msg: DataChannelMessage) => void>(() => { });
+  const receiveMessageRef = useRef<(msg: ChatMessage, senderPeerId: string, senderName: string) => void>(() => { });
 
   const { playAudio } = useAudioPlayer();
   const { voiceId, collectAudio, isCloning } = useVoiceClone(initialVoiceId);
@@ -96,9 +102,12 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId, ni
           break;
         case "voice-ready":
           break;
+        case "chat-message":
+          receiveMessageRef.current(msg.message, fromPeerId, peerNicknames.get(fromPeerId) || "Peer");
+          break;
       }
     },
-    [addSubtitle, playAudio]
+    [addSubtitle, playAudio, peerNicknames]
   );
 
   const isMutedRef = useRef(isMuted);
@@ -143,7 +152,19 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId, ni
 
   // Broadcast mute status to all peers
   const broadcastMessageRef = useRef(broadcastMessage);
-  broadcastMessageRef.current = broadcastMessage;
+
+  useEffect(() => {
+    broadcastMessageRef.current = broadcastMessage;
+  }, [broadcastMessage]);
+
+  // Chat hook
+  const { messages, sendMessage, receiveMessage } = useChat({
+    localLang: lang,
+    localNickname: nickname || "You",
+    sendMessageToAllPeers: broadcastMessage,
+  });
+
+  receiveMessageRef.current = receiveMessage;
 
   useEffect(() => {
     broadcastMessageRef.current({ type: "mute-status", isMuted });
@@ -288,14 +309,29 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId, ni
           </div>
         </div>
 
-        {/* Participant List Panel */}
-        {isParticipantsOpen && (
-          <div className="w-80 h-full flex-shrink-0 shadow-xl z-20 bg-white">
-            <ParticipantList
-              participants={allParticipants}
-              onClose={() => setIsParticipantsOpen(false)}
-              onToggleLocalMute={toggleLocalMute}
-            />
+        {/* Stacked Side Panel */}
+        {isAnyPanelOpen && (
+          <div className="w-80 h-full flex-shrink-0 shadow-xl z-20 bg-white flex flex-col border-l border-gray-100">
+            {isParticipantsOpen && (
+              <div className={`flex flex-col overflow-hidden ${isChatOpen ? "h-1/2" : "h-full"}`}>
+                <ParticipantList
+                  participants={allParticipants}
+                  onClose={() => setIsParticipantsOpen(false)}
+                  onToggleLocalMute={toggleLocalMute}
+                />
+              </div>
+            )}
+
+            {isChatOpen && (
+              <div className={`flex flex-col overflow-hidden ${isParticipantsOpen ? "h-1/2 border-t-2 border-gray-200" : "h-full"}`}>
+                <ChatPanel
+                  messages={messages}
+                  onSendMessage={sendMessage}
+                  onClose={() => setIsChatOpen(false)}
+                  localUserId="local"
+                />
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -311,6 +347,8 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId, ni
           roomId={roomId}
           isParticipantsOpen={isParticipantsOpen}
           onToggleParticipants={() => setIsParticipantsOpen(prev => !prev)}
+          isChatOpen={isChatOpen}
+          onToggleChat={() => setIsChatOpen(prev => !prev)}
         />
       </div>
     </div>

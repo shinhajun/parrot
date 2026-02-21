@@ -1,5 +1,15 @@
 import type { LanguageCode } from "@/lib/languages";
 
+export interface ChatMessage {
+  id: string; // unique message id
+  senderId: string; // peerId or "local"
+  senderName: string;
+  originalText: string;
+  sourceLang: LanguageCode;
+  translatedText?: string; // only populated if it needed translation
+  timestamp: number;
+}
+
 export type DataChannelMessage =
   | { type: "subtitle"; original: string; translated: string; segmentId: string }
   | { type: "tts-audio"; audioBase64: string; segmentId: string }
@@ -7,7 +17,8 @@ export type DataChannelMessage =
   | { type: "voice-ready"; voiceId: string }
   | { type: "mute-status"; isMuted: boolean }
   | { type: "camera-status"; isCameraOff: boolean }
-  | { type: "nickname"; name: string };
+  | { type: "nickname"; name: string }
+  | { type: "chat-message"; message: ChatMessage };
 
 export interface TranslateRequest {
   audioBase64: string;
