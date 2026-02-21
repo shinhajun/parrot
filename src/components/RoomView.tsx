@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { LanguageCode } from "@/lib/languages";
 import { getLanguageFlag, getLanguageName } from "@/lib/languages";
@@ -23,9 +23,15 @@ interface RoomViewProps {
 export default function RoomView({ roomId, lang, localStream }: RoomViewProps) {
   const router = useRouter();
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
-  const [remoteLang, setRemoteLang] = useState<LanguageCode | null>(null);
+  const [peerLangs, setPeerLangs] = useState<Map<string, LanguageCode>>(new Map());
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
+
+  const langRef = useRef(lang);
+  langRef.current = lang;
+
+  // Ref to sendMessageToPeer so handlePeerConnected can use it before the hook returns
+  const sendMessageToPeerRef = useRef<(peerId: string, msg: DataChannelMessage) => void>(() => {});
 
   const { playAudio } = useAudioPlayer();
   const { voiceId, collectAudio, isCloning } = useVoiceClone();
@@ -35,7 +41,7 @@ export default function RoomView({ roomId, lang, localStream }: RoomViewProps) {
   }, []);
 
   const handleDataChannelMessage = useCallback(
-    (msg: DataChannelMessage) => {
+    (msg: DataChannelMessage, fromPeerId: string) => {
       switch (msg.type) {
         case "subtitle":
           addSubtitle({
@@ -50,7 +56,11 @@ export default function RoomView({ roomId, lang, localStream }: RoomViewProps) {
           playAudio(msg.audioBase64);
           break;
         case "language":
-          setRemoteLang(msg.lang);
+          setPeerLangs((prev) => {
+            const next = new Map(prev);
+            next.set(fromPeerId, msg.lang);
+            return next;
+          });
           break;
         case "voice-ready":
           break;
@@ -59,42 +69,39 @@ export default function RoomView({ roomId, lang, localStream }: RoomViewProps) {
     [addSubtitle, playAudio]
   );
 
-  const { remoteStream, isConnected, dataChannel, error, sendMessage } = useWebRTC({
-    roomId,
-    localStream,
-    onDataChannelMessage: handleDataChannelMessage,
-  });
+  // Stable callback: uses refs so it doesn't change between renders
+  const handlePeerConnected = useCallback((peerId: string) => {
+    sendMessageToPeerRef.current(peerId, { type: "language", lang: langRef.current });
+  }, []);
 
-  // Send language to peer when DataChannel opens (not just when connected)
-  const sentLangRef = useRef(false);
-  useEffect(() => {
-    if (dataChannel && dataChannel.readyState === "open" && !sentLangRef.current) {
-      sendMessage({ type: "language", lang });
-      sentLangRef.current = true;
-    }
-    // Also listen for open event in case it opens after this effect runs
-    if (dataChannel && dataChannel.readyState !== "open") {
-      const onOpen = () => {
-        if (!sentLangRef.current) {
-          sendMessage({ type: "language", lang });
-          sentLangRef.current = true;
-        }
-      };
-      dataChannel.addEventListener("open", onOpen);
-      return () => dataChannel.removeEventListener("open", onOpen);
-    }
-  }, [dataChannel, lang, sendMessage]);
+  const { remotePeers, isConnected, error, sendMessageToPeer, broadcastMessage } =
+    useWebRTC({
+      roomId,
+      localStream,
+      onDataChannelMessage: handleDataChannelMessage,
+      onPeerConnected: handlePeerConnected,
+    });
 
-  // Translation pipeline
+  // Keep ref in sync with latest sendMessageToPeer
+  sendMessageToPeerRef.current = sendMessageToPeer;
+
+  // Derive peerTargets: only peers whose language we know
+  const peerTargets = remotePeers
+    .filter((peer) => peerLangs.has(peer.peerId))
+    .map((peer) => ({ peerId: peer.peerId, lang: peerLangs.get(peer.peerId)! }));
+
   useTranslation({
     sourceLang: lang,
-    targetLang: remoteLang ?? "en",
-    sendMessage,
+    peerTargets,
+    sendMessageToPeer,
     voiceId,
     onSubtitle: addSubtitle,
     onAudioCollected: collectAudio,
-    enabled: isConnected && !isMuted && remoteLang !== null,
+    enabled: peerTargets.length > 0 && !isMuted,
   });
+
+  // Suppress unused warning for broadcastMessage (available for future use)
+  void broadcastMessage;
 
   const handleToggleMute = useCallback(() => {
     localStream.getAudioTracks().forEach((t) => {
@@ -131,10 +138,37 @@ export default function RoomView({ roomId, lang, localStream }: RoomViewProps) {
         )}
       </div>
 
-      {/* Video area - side by side */}
-      <div className="flex-1 flex items-center justify-center p-4 gap-4 min-h-0">
+      {/* Video grid — 2-column layout, local video last */}
+      <div className="flex-1 grid grid-cols-2 gap-3 p-4 min-h-0">
+        {remotePeers.map((peer) => {
+          const peerLang = peerLangs.get(peer.peerId);
+          return (
+            <div key={peer.peerId} className="relative rounded-2xl overflow-hidden bg-slate-900">
+              <VideoPanel
+                stream={peer.stream}
+                muted={false}
+                label={peerLang ? `Peer ${getLanguageFlag(peerLang)}` : "Connecting..."}
+                languageFlag={peerLang ? getLanguageFlag(peerLang) : undefined}
+              />
+              {peerLang && (
+                <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 rounded text-xs text-slate-300">
+                  {getLanguageName(peerLang)}
+                </div>
+              )}
+              {!peer.stream && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center space-y-2">
+                    <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto" />
+                    <p className="text-sm text-slate-400">Connecting...</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
         {/* Local video */}
-        <div className="flex-1 max-w-[50%] aspect-video rounded-2xl overflow-hidden relative">
+        <div className="relative rounded-2xl overflow-hidden">
           <VideoPanel
             stream={localStream}
             muted={true}
@@ -146,28 +180,15 @@ export default function RoomView({ roomId, lang, localStream }: RoomViewProps) {
           </div>
         </div>
 
-        {/* Remote video */}
-        <div className="flex-1 max-w-[50%] aspect-video rounded-2xl overflow-hidden relative">
-          <VideoPanel
-            stream={remoteStream}
-            muted={false}
-            label={remoteLang ? `Peer ${getLanguageFlag(remoteLang)}` : "Waiting for peer..."}
-            languageFlag={remoteLang ? getLanguageFlag(remoteLang) : undefined}
-          />
-          {remoteLang && (
-            <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 rounded text-xs text-slate-300">
-              {getLanguageName(remoteLang)}
+        {/* Waiting placeholder when no remote peers yet */}
+        {remotePeers.length === 0 && (
+          <div className="relative rounded-2xl overflow-hidden bg-slate-900 flex items-center justify-center">
+            <div className="text-center space-y-2">
+              <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto" />
+              <p className="text-sm text-slate-400">Waiting for peers...</p>
             </div>
-          )}
-          {!remoteStream && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center space-y-2">
-                <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto" />
-                <p className="text-sm text-slate-400">Waiting for peer...</p>
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Subtitle area */}

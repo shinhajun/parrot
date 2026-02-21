@@ -8,21 +8,33 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 interface UseWebRTCProps {
   roomId: string;
   localStream: MediaStream | null;
-  onDataChannelMessage: (msg: DataChannelMessage) => void;
+  onDataChannelMessage: (msg: DataChannelMessage, fromPeerId: string) => void;
+  onPeerConnected: (peerId: string) => void;
+}
+
+export interface RemotePeer {
+  peerId: string;
+  stream: MediaStream | null;
 }
 
 interface UseWebRTCReturn {
-  remoteStream: MediaStream | null;
-  dataChannel: RTCDataChannel | null;
+  remotePeers: RemotePeer[];
   isConnected: boolean;
   error: string | null;
-  sendMessage: (msg: DataChannelMessage) => void;
+  sendMessageToPeer: (peerId: string, msg: DataChannelMessage) => void;
+  broadcastMessage: (msg: DataChannelMessage) => void;
 }
 
 type SignalingMessage =
-  | { type: "offer"; sdp: RTCSessionDescriptionInit; senderId: string }
-  | { type: "answer"; sdp: RTCSessionDescriptionInit; senderId: string }
-  | { type: "ice-candidate"; candidate: RTCIceCandidateInit; senderId: string };
+  | { type: "offer"; sdp: RTCSessionDescriptionInit; senderId: string; targetId: string }
+  | { type: "answer"; sdp: RTCSessionDescriptionInit; senderId: string; targetId: string }
+  | { type: "ice-candidate"; candidate: RTCIceCandidateInit; senderId: string; targetId: string };
+
+interface PeerState {
+  pc: RTCPeerConnection;
+  dc: RTCDataChannel | null;
+  stream: MediaStream | null;
+}
 
 const RTC_CONFIG: RTCConfiguration = {
   iceServers: [
@@ -35,26 +47,44 @@ export function useWebRTC({
   roomId,
   localStream,
   onDataChannelMessage,
+  onPeerConnected,
 }: UseWebRTCProps): UseWebRTCReturn {
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const [dataChannel, setDataChannel] = useState<RTCDataChannel | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
+  const [remotePeers, setRemotePeers] = useState<RemotePeer[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const peerRef = useRef<RTCPeerConnection | null>(null);
+  const peerMapRef = useRef<Map<string, PeerState>>(new Map());
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const dataChannelRef = useRef<RTCDataChannel | null>(null);
   const localIdRef = useRef(crypto.randomUUID());
   const onDataChannelMessageRef = useRef(onDataChannelMessage);
+  const onPeerConnectedRef = useRef(onPeerConnected);
+  const localStreamRef = useRef(localStream);
 
-  useEffect(() => {
-    onDataChannelMessageRef.current = onDataChannelMessage;
-  }, [onDataChannelMessage]);
+  useEffect(() => { onDataChannelMessageRef.current = onDataChannelMessage; }, [onDataChannelMessage]);
+  useEffect(() => { onPeerConnectedRef.current = onPeerConnected; }, [onPeerConnected]);
+  useEffect(() => { localStreamRef.current = localStream; }, [localStream]);
 
-  const sendMessage = useCallback((msg: DataChannelMessage) => {
-    const dc = dataChannelRef.current;
-    if (dc && dc.readyState === "open") {
-      dc.send(JSON.stringify(msg));
+  const isConnected = remotePeers.length > 0;
+
+  const rebuildPeers = useCallback(() => {
+    const peers: RemotePeer[] = [];
+    for (const [peerId, state] of peerMapRef.current) {
+      peers.push({ peerId, stream: state.stream });
+    }
+    setRemotePeers([...peers]);
+  }, []);
+
+  const sendMessageToPeer = useCallback((peerId: string, msg: DataChannelMessage) => {
+    const peerState = peerMapRef.current.get(peerId);
+    if (peerState?.dc && peerState.dc.readyState === "open") {
+      peerState.dc.send(JSON.stringify(msg));
+    }
+  }, []);
+
+  const broadcastMessage = useCallback((msg: DataChannelMessage) => {
+    for (const [, peerState] of peerMapRef.current) {
+      if (peerState.dc && peerState.dc.readyState === "open") {
+        peerState.dc.send(JSON.stringify(msg));
+      }
     }
   }, []);
 
@@ -62,26 +92,54 @@ export function useWebRTC({
     if (!roomId || !localStream) return;
 
     const localId = localIdRef.current;
-    let pc: RTCPeerConnection | null = null;
     let isCleaned = false;
 
-    function createPeerConnection(): RTCPeerConnection {
-      const peer = new RTCPeerConnection(RTC_CONFIG);
-      peerRef.current = peer;
+    function setupDataChannel(dc: RTCDataChannel, peerId: string) {
+      dc.onopen = () => {
+        const peerState = peerMapRef.current.get(peerId);
+        if (peerState) {
+          peerState.dc = dc;
+          rebuildPeers();
+          onPeerConnectedRef.current(peerId);
+        }
+      };
+      dc.onclose = () => {
+        const peerState = peerMapRef.current.get(peerId);
+        if (peerState) {
+          peerState.dc = null;
+          rebuildPeers();
+        }
+      };
+      dc.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data) as DataChannelMessage;
+          onDataChannelMessageRef.current(msg, peerId);
+        } catch {
+          // ignore malformed messages
+        }
+      };
+    }
 
-      localStream!.getTracks().forEach((track) => {
-        peer.addTrack(track, localStream!);
-      });
+    function createPeerConnection(peerId: string): RTCPeerConnection {
+      const pc = new RTCPeerConnection(RTC_CONFIG);
+      const stream = localStreamRef.current;
+      if (stream) {
+        stream.getTracks().forEach((track) => {
+          pc.addTrack(track, stream);
+        });
+      }
 
       const remote = new MediaStream();
-      peer.ontrack = (e) => {
-        e.streams[0]?.getTracks().forEach((track) => {
-          remote.addTrack(track);
-        });
-        setRemoteStream(remote);
+      pc.ontrack = (e) => {
+        e.streams[0]?.getTracks().forEach((track) => remote.addTrack(track));
+        const peerState = peerMapRef.current.get(peerId);
+        if (peerState) {
+          peerState.stream = remote;
+          rebuildPeers();
+        }
       };
 
-      peer.onicecandidate = (e) => {
+      pc.onicecandidate = (e) => {
         if (e.candidate && channelRef.current) {
           channelRef.current.send({
             type: "broadcast",
@@ -90,51 +148,79 @@ export function useWebRTC({
               type: "ice-candidate",
               candidate: e.candidate.toJSON(),
               senderId: localId,
+              targetId: peerId,
             } satisfies SignalingMessage,
           });
         }
       };
 
-      peer.onconnectionstatechange = () => {
-        if (peer.connectionState === "connected") {
-          setIsConnected(true);
-        } else if (
-          peer.connectionState === "disconnected" ||
-          peer.connectionState === "failed"
+      pc.onconnectionstatechange = () => {
+        if (
+          pc.connectionState === "disconnected" ||
+          pc.connectionState === "failed"
         ) {
-          setIsConnected(false);
+          cleanupPeer(peerId);
         }
       };
 
-      return peer;
+      return pc;
     }
 
-    function setupDataChannel(dc: RTCDataChannel) {
-      dc.onopen = () => {
-        dataChannelRef.current = dc;
-        setDataChannel(dc);
-      };
-      dc.onclose = () => {
-        dataChannelRef.current = null;
-        setDataChannel(null);
-      };
-      dc.onmessage = (e) => {
-        try {
-          const msg = JSON.parse(e.data) as DataChannelMessage;
-          onDataChannelMessageRef.current(msg);
-        } catch {
-          // ignore malformed messages
+    function cleanupPeer(peerId: string) {
+      const peerState = peerMapRef.current.get(peerId);
+      if (peerState) {
+        peerState.dc?.close();
+        peerState.pc.close();
+        peerMapRef.current.delete(peerId);
+        rebuildPeers();
+      }
+    }
+
+    async function createOfferToPeer(peerId: string) {
+      // Guard against duplicate offers
+      if (peerMapRef.current.has(peerId)) return;
+
+      try {
+        const pc = createPeerConnection(peerId);
+        const dc = pc.createDataChannel("babelroom");
+        // Add to map immediately to prevent races on subsequent sync events
+        peerMapRef.current.set(peerId, { pc, dc: null, stream: null });
+        setupDataChannel(dc, peerId);
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        channelRef.current?.send({
+          type: "broadcast",
+          event: "signal",
+          payload: {
+            type: "offer",
+            sdp: offer,
+            senderId: localId,
+            targetId: peerId,
+          } satisfies SignalingMessage,
+        });
+      } catch (err) {
+        if (!isCleaned) {
+          setError(err instanceof Error ? err.message : "Failed to create offer");
         }
-      };
+      }
     }
 
     async function handleSignal(payload: SignalingMessage) {
       if (payload.senderId === localId) return;
+      if (payload.targetId !== localId) return;
+
+      const peerId = payload.senderId;
 
       try {
         if (payload.type === "offer") {
-          pc = createPeerConnection();
-          pc.ondatachannel = (e) => setupDataChannel(e.channel);
+          // Guard against duplicate connections
+          if (peerMapRef.current.has(peerId)) return;
+
+          const pc = createPeerConnection(peerId);
+          peerMapRef.current.set(peerId, { pc, dc: null, stream: null });
+          pc.ondatachannel = (e) => setupDataChannel(e.channel, peerId);
 
           await pc.setRemoteDescription(payload.sdp);
           const answer = await pc.createAnswer();
@@ -147,22 +233,23 @@ export function useWebRTC({
               type: "answer",
               sdp: answer,
               senderId: localId,
+              targetId: peerId,
             } satisfies SignalingMessage,
           });
         } else if (payload.type === "answer") {
-          if (pc) {
-            await pc.setRemoteDescription(payload.sdp);
+          const peerState = peerMapRef.current.get(peerId);
+          if (peerState) {
+            await peerState.pc.setRemoteDescription(payload.sdp);
           }
         } else if (payload.type === "ice-candidate") {
-          if (pc) {
-            await pc.addIceCandidate(payload.candidate);
+          const peerState = peerMapRef.current.get(peerId);
+          if (peerState) {
+            await peerState.pc.addIceCandidate(payload.candidate);
           }
         }
       } catch (err) {
         if (!isCleaned) {
-          setError(
-            err instanceof Error ? err.message : "Signaling error occurred"
-          );
+          setError(err instanceof Error ? err.message : "Signaling error occurred");
         }
       }
     }
@@ -177,45 +264,23 @@ export function useWebRTC({
         handleSignal(payload as SignalingMessage);
       })
       .on("presence", { event: "sync" }, () => {
-        // On presence sync, check if there are exactly 2 participants
-        // The one with the alphabetically smaller ID creates the offer
-        if (pc) return; // already connected
-
         const state = channel.presenceState();
-        const allKeys = Object.keys(state);
-        if (allKeys.length === 2) {
-          const sorted = [...allKeys].sort();
-          const isHost = sorted[0] === localId;
+        const currentPeerIds = new Set(
+          Object.keys(state).filter((k) => k !== localId)
+        );
+        const knownPeerIds = new Set(peerMapRef.current.keys());
 
-          if (isHost) {
-            (async () => {
-              try {
-                pc = createPeerConnection();
-                const dc = pc.createDataChannel("babelroom");
-                setupDataChannel(dc);
+        // New peers: create offer only if localId < peerId (deterministic)
+        for (const peerId of currentPeerIds) {
+          if (!knownPeerIds.has(peerId) && localId < peerId) {
+            createOfferToPeer(peerId);
+          }
+        }
 
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-
-                channel.send({
-                  type: "broadcast",
-                  event: "signal",
-                  payload: {
-                    type: "offer",
-                    sdp: offer,
-                    senderId: localId,
-                  } satisfies SignalingMessage,
-                });
-              } catch (err) {
-                if (!isCleaned) {
-                  setError(
-                    err instanceof Error
-                      ? err.message
-                      : "Failed to create offer"
-                  );
-                }
-              }
-            })();
+        // Left peers: cleanup
+        for (const peerId of knownPeerIds) {
+          if (!currentPeerIds.has(peerId)) {
+            cleanupPeer(peerId);
           }
         }
       })
@@ -228,22 +293,19 @@ export function useWebRTC({
     return () => {
       isCleaned = true;
 
-      dataChannelRef.current?.close();
-      dataChannelRef.current = null;
-
-      peerRef.current?.close();
-      peerRef.current = null;
-      pc = null;
+      for (const [, peerState] of peerMapRef.current) {
+        peerState.dc?.close();
+        peerState.pc.close();
+      }
+      peerMapRef.current.clear();
 
       channel.unsubscribe();
       channelRef.current = null;
 
-      setRemoteStream(null);
-      setDataChannel(null);
-      setIsConnected(false);
+      setRemotePeers([]);
       setError(null);
     };
-  }, [roomId, localStream]);
+  }, [roomId, localStream, rebuildPeers]);
 
-  return { remoteStream, dataChannel, isConnected, error, sendMessage };
+  return { remotePeers, isConnected, error, sendMessageToPeer, broadcastMessage };
 }
