@@ -31,42 +31,39 @@ export function ControlBar({
     }
   };
 
+  const buttonBase =
+    "flex h-11 w-11 items-center justify-center rounded-full text-base transition-all duration-200";
+  const defaultStyle = "bg-gray-100 hover:bg-gray-200 text-gray-600";
+  const activeStyle = "bg-red-50 hover:bg-red-100 text-red-500";
+
   return (
-    <div className="flex items-center justify-center gap-4">
+    <div className="flex items-center justify-center gap-3">
       <button
         onClick={onToggleMute}
-        className={`flex h-12 w-12 items-center justify-center rounded-full text-lg transition-colors ${
-          isMuted
-            ? "bg-red-600 hover:bg-red-500"
-            : "bg-slate-800 hover:bg-slate-700"
-        }`}
+        className={`${buttonBase} ${isMuted ? activeStyle : defaultStyle}`}
         aria-label={isMuted ? "Unmute" : "Mute"}
       >
-        {isMuted ? "\uD83D\uDD07" : "\uD83C\uDF99\uFE0F"}
+        {isMuted ? "🔇" : "🎙️"}
       </button>
 
       <button
         onClick={onToggleCamera}
-        className={`flex h-12 w-12 items-center justify-center rounded-full text-lg transition-colors ${
-          isCameraOff
-            ? "bg-red-600 hover:bg-red-500"
-            : "bg-slate-800 hover:bg-slate-700"
-        }`}
+        className={`${buttonBase} ${isCameraOff ? activeStyle : defaultStyle}`}
         aria-label={isCameraOff ? "Turn camera on" : "Turn camera off"}
       >
-        {isCameraOff ? "\uD83D\uDEAB" : "\uD83D\uDCF7"}
+        {isCameraOff ? "🚫" : "📷"}
       </button>
 
       <div className="relative">
         <button
           onClick={handleShare}
-          className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-800 text-lg transition-colors hover:bg-slate-700"
+          className={`${buttonBase} ${defaultStyle}`}
           aria-label="Copy room link"
         >
-          {"\uD83D\uDD17"}
+          {"🔗"}
         </button>
         {copied && (
-          <span className="absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-slate-700 px-2 py-1 text-xs text-white whitespace-nowrap">
+          <span className="absolute -top-8 left-1/2 -translate-x-1/2 rounded-lg bg-gray-800 px-2.5 py-1 text-xs text-white whitespace-nowrap shadow-lg">
             Copied!
           </span>
         )}
@@ -74,10 +71,10 @@ export function ControlBar({
 
       <button
         onClick={onLeave}
-        className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-lg transition-colors hover:bg-red-500"
+        className={`${buttonBase} bg-red-500 hover:bg-red-600 text-white shadow-sm`}
         aria-label="Leave room"
       >
-        {"\uD83D\uDCDE"}
+        {"📞"}
       </button>
     </div>
   );

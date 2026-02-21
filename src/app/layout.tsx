@@ -4,8 +4,8 @@ import "./globals.css";
 import type { Viewport } from "next";
 
 export const metadata: Metadata = {
-  title: "BabelRoom",
-  description: "Real-time video call translator with voice cloning",
+  title: "Parrot",
+  description: "Parrot — Real-time video call translator with voice cloning",
   manifest: "/manifest.json",
   icons: {
     icon: "/favicon.png",
@@ -17,7 +17,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#0f172a",
+  themeColor: "#ffffff",
 };
 
 export default function RootLayout({
@@ -27,7 +27,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-slate-950 text-white min-h-screen">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+      </head>
+      <body className="bg-white text-gray-900 min-h-screen antialiased">
         {children}
       </body>
     </html>
