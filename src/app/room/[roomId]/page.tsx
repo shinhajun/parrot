@@ -41,7 +41,7 @@ export default function RoomPage() {
 
     return (
       <main className="flex min-h-screen items-center justify-center px-4 bg-gray-50">
-        <div className="w-full max-w-lg space-y-8 animate-pop-in">
+        <div className="w-full max-w-sm space-y-8 animate-pop-in">
           {/* Header */}
           <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Join Room</h1>
@@ -51,38 +51,31 @@ export default function RoomPage() {
             </p>
           </div>
 
-          {/* Language selection */}
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-500 text-center">
+          {/* Language selection — dropdown */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-500">
               What language do you speak?
             </label>
-            <div className="grid grid-cols-2 gap-2.5">
-              {languageEntries.map(([code, { name, flag, english }]) => (
-                <button
-                  key={code}
-                  onClick={() => setSelectedLang(code)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 text-left ${selectedLang === code
-                      ? "bg-blue-50 border-blue-200 shadow-sm ring-1 ring-blue-100"
-                      : "bg-white border-gray-100 hover:bg-gray-50 hover:border-gray-200"
-                    }`}
-                >
-                  <span className="text-2xl">{flag}</span>
-                  <div className="flex flex-col">
-                    <span className={`text-sm font-semibold ${selectedLang === code ? "text-blue-700" : "text-gray-800"
-                      }`}>
-                      {name}
-                    </span>
-                    <span className="text-xs text-gray-400">{english}</span>
-                  </div>
-                  {selectedLang === code && (
-                    <span className="ml-auto text-blue-500">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </span>
-                  )}
-                </button>
-              ))}
+            <div className="relative">
+              <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-xl">
+                {LANGUAGES[selectedLang].flag}
+              </span>
+              <select
+                value={selectedLang}
+                onChange={(e) => setSelectedLang(e.target.value as LanguageCode)}
+                className="w-full appearance-none bg-white border border-gray-200 rounded-xl pl-11 pr-10 py-3.5 text-gray-900 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer shadow-sm"
+              >
+                {languageEntries.map(([code, { name, flag, english }]) => (
+                  <option key={code} value={code}>
+                    {flag} {name} — {english}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </div>
             </div>
           </div>
 

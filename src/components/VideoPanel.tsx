@@ -82,7 +82,7 @@ export default function VideoPanel({
               className={`p-1.5 rounded-full backdrop-blur-md transition-colors ${isLocallyMuted
                 ? "bg-red-500/80 text-white hover:bg-red-500"
                 : "bg-black/30 text-white/90 hover:bg-black/50"
-                } opacity-0 group-hover:opacity-100`}
+                } opacity-100 md:opacity-0 md:group-hover:opacity-100`}
               title={isLocallyMuted ? "Unmute peer" : "Mute peer locally"}
             >
               {isLocallyMuted ? (
