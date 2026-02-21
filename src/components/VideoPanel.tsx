@@ -14,6 +14,7 @@ interface VideoPanelProps {
   isActive?: boolean;
   isLocallyMuted?: boolean;
   onToggleLocalMute?: () => void;
+  isLocal?: boolean;
 }
 
 export default function VideoPanel({
@@ -27,6 +28,7 @@ export default function VideoPanel({
   isCameraOff = false,
   isLocallyMuted = false,
   onToggleLocalMute,
+  isLocal = false,
 }: VideoPanelProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -73,7 +75,12 @@ export default function VideoPanel({
       {/* Bottom label bar */}
       <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/60 via-black/20 to-transparent flex items-end justify-between opacity-100 transition-opacity duration-200">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-white drop-shadow-sm">
+          <span
+            className={`text-xs font-medium drop-shadow-sm transition-colors ${isLocal
+                ? "bg-blue-500/80 text-white px-2 py-1 rounded-md backdrop-blur-sm shadow-sm border border-blue-400/50"
+                : "text-white"
+              }`}
+          >
             {label}
           </span>
           {onToggleLocalMute && (

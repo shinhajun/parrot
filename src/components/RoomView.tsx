@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { LanguageCode } from "@/lib/languages";
 import { getLanguageFlag, getLanguageName } from "@/lib/languages";
-import type { DataChannelMessage, Subtitle } from "@/types";
+import type { DataChannelMessage, Subtitle, ChatMessage } from "@/types";
 import { useWebRTC } from "@/hooks/useWebRTC";
 import { useVoiceClone } from "@/hooks/useVoiceClone";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -12,8 +12,11 @@ import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import { useAudioActivity } from "@/hooks/useAudioActivity";
 import VideoPanel from "./VideoPanel";
 import SubtitleOverlay from "./SubtitleOverlay";
+import { ParticipantList, type Participant } from "./ParticipantList";
+import { ChatPanel } from "./ChatPanel";
 import { ControlBar } from "./ControlBar";
 import ConnectionStatus from "./ConnectionStatus";
+import { useChat } from "@/hooks/useChat";
 
 interface RoomViewProps {
   roomId: string;
@@ -34,10 +37,15 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId, ni
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
 
+  const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const isAnyPanelOpen = isParticipantsOpen || isChatOpen;
+
   const langRef = useRef(lang);
   langRef.current = lang;
 
   const sendMessageToPeerRef = useRef<(peerId: string, msg: DataChannelMessage) => void>(() => { });
+  const receiveMessageRef = useRef<(msg: ChatMessage, senderPeerId: string, senderName: string) => void>(() => { });
 
   const { playAudio } = useAudioPlayer();
   const { voiceId, collectAudio, isCloning } = useVoiceClone(initialVoiceId);
@@ -94,9 +102,12 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId, ni
           break;
         case "voice-ready":
           break;
+        case "chat-message":
+          receiveMessageRef.current(msg.message, fromPeerId, peerNicknames.get(fromPeerId) || "Peer");
+          break;
       }
     },
-    [addSubtitle, playAudio]
+    [addSubtitle, playAudio, peerNicknames]
   );
 
   const isMutedRef = useRef(isMuted);
@@ -141,7 +152,19 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId, ni
 
   // Broadcast mute status to all peers
   const broadcastMessageRef = useRef(broadcastMessage);
-  broadcastMessageRef.current = broadcastMessage;
+
+  useEffect(() => {
+    broadcastMessageRef.current = broadcastMessage;
+  }, [broadcastMessage]);
+
+  // Chat hook
+  const { messages, sendMessage, receiveMessage } = useChat({
+    localLang: lang,
+    localNickname: nickname || "You",
+    sendMessageToAllPeers: broadcastMessage,
+  });
+
+  receiveMessageRef.current = receiveMessage;
 
   useEffect(() => {
     broadcastMessageRef.current({ type: "mute-status", isMuted });
@@ -186,6 +209,26 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId, ni
   const mySubtitles = subtitles.filter((s) => s.isMine);
   const peerSubtitles = subtitles.filter((s) => !s.isMine);
 
+  const allParticipants: Participant[] = [
+    {
+      id: "local",
+      name: nickname || "You",
+      lang,
+      isLocal: true,
+      isMuted,
+      isCameraOff,
+    },
+    ...remotePeers.map((p) => ({
+      id: p.peerId,
+      name: peerNicknames.get(p.peerId) || "Peer",
+      lang: peerLangs.get(p.peerId),
+      isLocal: false,
+      isMuted: peerMuted.get(p.peerId) ?? false,
+      isCameraOff: peerCameraOff.get(p.peerId) ?? false,
+      isLocallyMuted: locallyMutedPeers.has(p.peerId),
+    })),
+  ];
+
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       {/* Top bar */}
@@ -202,6 +245,30 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId, ni
         )}
       </div>
 
+<<<<<<< HEAD
+      {/* Main Content Area (Video + Side Panel) */}
+      <div className="flex-1 flex min-h-0 relative overflow-hidden">
+
+        {/* Video grid — horizontal fill */}
+        <div className="flex-1 flex items-center justify-center p-6 min-h-0 relative overflow-y-auto">
+          <div className="flex gap-6 justify-center items-start max-w-6xl w-full">
+            {/* Local video tile */}
+            <div className="animate-pop-in flex flex-col items-center flex-1 min-w-0 max-w-2xl">
+              <VideoPanel
+                stream={localStream}
+                muted={true}
+                label={`${nickname ? `${nickname} (You)` : "You"} ${getLanguageFlag(lang)}`}
+                languageFlag={getLanguageFlag(lang)}
+                languageName={getLanguageName(lang)}
+                isSpeaking={localIsSpeaking}
+                isMuted={isMuted}
+                isCameraOff={isCameraOff}
+                isLocal={true}
+              />
+              <div className="w-full mt-2">
+                <SubtitleOverlay subtitles={mySubtitles} compact />
+              </div>
+=======
       {/* Video grid — responsive: stacked on mobile, side-by-side on desktop */}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
         <div className="m-auto w-full flex flex-col gap-3 p-3 md:flex-row md:gap-6 md:p-6 md:justify-center md:items-start md:max-w-6xl">
@@ -257,16 +324,86 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId, ni
                 </div>
               </div>
               <div className="w-full mt-1.5 h-10" />
+>>>>>>> main
             </div>
-          )}
+
+            {/* Remote peer tiles */}
+            {remotePeers.map((peer) => {
+              const peerLang = peerLangs.get(peer.peerId);
+              const isPeerMuted = peerMuted.get(peer.peerId) ?? false;
+              return (
+                <div key={peer.peerId} className="animate-pop-in flex flex-col items-center flex-1 min-w-0 max-w-2xl">
+                  <VideoPanel
+                    stream={peer.stream}
+                    muted={false}
+                    label={peerLang ? `${peerNicknames.get(peer.peerId) || "Peer"} ${getLanguageFlag(peerLang)}` : "Connecting..."}
+                    languageFlag={peerLang ? getLanguageFlag(peerLang) : undefined}
+                    languageName={peerLang ? getLanguageName(peerLang) : undefined}
+                    isSpeaking={false}
+                    isMuted={isPeerMuted}
+                    isCameraOff={peerCameraOff.get(peer.peerId) ?? false}
+                    isLocallyMuted={locallyMutedPeers.has(peer.peerId)}
+                    onToggleLocalMute={() => toggleLocalMute(peer.peerId)}
+                  />
+                  <div className="w-full mt-2">
+                    <SubtitleOverlay subtitles={peerSubtitles} compact />
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Waiting placeholder */}
+            {remotePeers.length === 0 && (
+              <div className="animate-pop-in flex flex-col items-center flex-1 min-w-0 max-w-2xl">
+                <div className="w-full aspect-video rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center justify-center">
+                  <div className="text-center space-y-3">
+                    <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto" />
+                    <p className="text-sm text-gray-400 font-medium">Waiting for peers...</p>
+                  </div>
+                </div>
+                <div className="w-full mt-2 h-12" />
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Stacked Side Panel */}
+        {isAnyPanelOpen && (
+          <div className="w-80 h-full flex-shrink-0 shadow-xl z-20 bg-white flex flex-col border-l border-gray-100">
+            {isParticipantsOpen && (
+              <div className={`flex flex-col overflow-hidden ${isChatOpen ? "h-1/2" : "h-full"}`}>
+                <ParticipantList
+                  participants={allParticipants}
+                  onClose={() => setIsParticipantsOpen(false)}
+                  onToggleLocalMute={toggleLocalMute}
+                />
+              </div>
+            )}
+
+            {isChatOpen && (
+              <div className={`flex flex-col overflow-hidden ${isParticipantsOpen ? "h-1/2 border-t-2 border-gray-200" : "h-full"}`}>
+                <ChatPanel
+                  messages={messages}
+                  onSendMessage={sendMessage}
+                  onClose={() => setIsChatOpen(false)}
+                  localUserId="local"
+                />
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
+<<<<<<< HEAD
+      {/* Control bar */}
+      <div className="flex items-center justify-center py-4 px-6 bg-white border-t border-gray-100 shrink-0">
+=======
       {/* Control bar — with iOS safe area */}
       <div
         className="flex items-center justify-center px-6 pt-3 bg-white border-t border-gray-100"
         style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}
       >
+>>>>>>> main
         <ControlBar
           isMuted={isMuted}
           onToggleMute={handleToggleMute}
@@ -274,6 +411,10 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId, ni
           onToggleCamera={handleToggleCamera}
           onLeave={handleLeave}
           roomId={roomId}
+          isParticipantsOpen={isParticipantsOpen}
+          onToggleParticipants={() => setIsParticipantsOpen(prev => !prev)}
+          isChatOpen={isChatOpen}
+          onToggleChat={() => setIsChatOpen(prev => !prev)}
         />
       </div>
     </div>

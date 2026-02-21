@@ -9,6 +9,10 @@ interface ControlBarProps {
   onToggleCamera: () => void;
   onLeave: () => void;
   roomId: string;
+  onToggleParticipants?: () => void;
+  isParticipantsOpen?: boolean;
+  onToggleChat?: () => void;
+  isChatOpen?: boolean;
 }
 
 export function ControlBar({
@@ -18,6 +22,10 @@ export function ControlBar({
   onToggleCamera,
   onLeave,
   roomId,
+  onToggleParticipants,
+  isParticipantsOpen = false,
+  onToggleChat,
+  isChatOpen = false,
 }: ControlBarProps) {
   const [copied, setCopied] = useState(false);
 
@@ -56,6 +64,30 @@ export function ControlBar({
       >
         {isCameraOff ? "🚫" : "📷"}
       </button>
+
+      {onToggleParticipants && (
+        <button
+          onClick={onToggleParticipants}
+          className={`${buttonBase} ${isParticipantsOpen ? "bg-blue-50 text-blue-600 border border-blue-100" : defaultStyle}`}
+          aria-label="Toggle Participants"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+          </svg>
+        </button>
+      )}
+
+      {onToggleChat && (
+        <button
+          onClick={onToggleChat}
+          className={`${buttonBase} ${isChatOpen ? "bg-blue-50 text-blue-600 border border-blue-100" : defaultStyle}`}
+          aria-label="Toggle Chat"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
+          </svg>
+        </button>
+      )}
 
       <div className="relative">
         <button
