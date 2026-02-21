@@ -255,7 +255,7 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId, ni
                 <div key={peer.peerId} className="animate-pop-in flex flex-col items-center flex-1 min-w-0 max-w-2xl">
                   <VideoPanel
                     stream={peer.stream}
-                    muted={true}
+                    muted={false}
                     label={peerLang ? `${peerNicknames.get(peer.peerId) || "Peer"} ${getLanguageFlag(peerLang)}` : "Connecting..."}
                     languageFlag={peerLang ? getLanguageFlag(peerLang) : undefined}
                     languageName={peerLang ? getLanguageName(peerLang) : undefined}
