@@ -14,7 +14,7 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { audioBase64, name } = await req.json();
+    const { audioBase64, name, oldVoiceId } = await req.json();
 
     if (!audioBase64 || !name) {
       return new Response(
@@ -56,9 +56,22 @@ serve(async (req: Request) => {
     }
 
     const cloneData = await cloneResponse.json();
+    const newVoiceId: string = cloneData.voice_id;
+
+    // Delete the old cloned voice from ElevenLabs to prevent accumulation
+    if (oldVoiceId && typeof oldVoiceId === "string" && oldVoiceId !== newVoiceId) {
+      try {
+        await fetch(`https://api.elevenlabs.io/v1/voices/${oldVoiceId}`, {
+          method: "DELETE",
+          headers: { "xi-api-key": apiKey },
+        });
+      } catch {
+        // Non-fatal — old voice deletion failure shouldn't block the response
+      }
+    }
 
     return new Response(
-      JSON.stringify({ voiceId: cloneData.voice_id }),
+      JSON.stringify({ voiceId: newVoiceId }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {

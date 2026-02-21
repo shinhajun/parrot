@@ -7,9 +7,9 @@ interface UseVADProps {
   enabled: boolean;
 }
 
-// Energy-based VAD using Web Audio API - no ONNX dependency
-const ENERGY_THRESHOLD = 0.01; // RMS energy threshold for speech
-const SILENCE_TIMEOUT = 800; // ms of silence before speech end
+// Energy-based VAD using Web Audio API
+const ENERGY_THRESHOLD = 0.02; // RMS energy threshold for speech
+const SILENCE_TIMEOUT = 800;   // ms of silence before speech end
 const MIN_SPEECH_DURATION = 300; // ms minimum speech to trigger
 const MAX_SPEECH_DURATION = 12000; // ms max before force-flushing segment
 const SAMPLE_RATE = 16000;
@@ -53,9 +53,8 @@ export function useVAD({ onSpeechEnd, enabled }: UseVADProps) {
         const audioContext = new AudioContext({ sampleRate: SAMPLE_RATE });
         const source = audioContext.createMediaStreamSource(stream);
 
-        // ScriptProcessor for raw audio access (AudioWorklet overkill for hackathon)
-        const bufferSize = 4096;
-        const processor = audioContext.createScriptProcessor(bufferSize, 1, 1);
+        await audioContext.audioWorklet.addModule("/vad-processor.worklet.js");
+        const processor = new AudioWorkletNode(audioContext, "vad-processor");
 
         let isSpeaking = false;
         let speechStart = 0;
@@ -74,9 +73,8 @@ export function useVAD({ onSpeechEnd, enabled }: UseVADProps) {
           audioChunks.length = 0;
         }
 
-        processor.onaudioprocess = (e) => {
-          const input = e.inputBuffer.getChannelData(0);
-          const chunk = new Float32Array(input);
+        processor.port.onmessage = (event) => {
+          const chunk = event.data.samples as Float32Array;
 
           // Calculate RMS energy
           let sum = 0;
@@ -84,11 +82,9 @@ export function useVAD({ onSpeechEnd, enabled }: UseVADProps) {
             sum += chunk[i] * chunk[i];
           }
           const rms = Math.sqrt(sum / chunk.length);
-
           const now = Date.now();
 
           if (rms > ENERGY_THRESHOLD) {
-            // Speech detected
             if (!isSpeaking) {
               isSpeaking = true;
               speechStart = now;
@@ -97,18 +93,15 @@ export function useVAD({ onSpeechEnd, enabled }: UseVADProps) {
             silenceStart = 0;
             audioChunks.push(chunk);
 
-            // Force-flush if segment is too long (prevents huge batches)
             if (now - speechStart >= MAX_SPEECH_DURATION) {
               flushSegment();
               speechStart = now;
             }
           } else if (isSpeaking) {
-            // Silence during speech
-            audioChunks.push(chunk); // keep collecting during silence gap
+            audioChunks.push(chunk);
             if (silenceStart === 0) {
               silenceStart = now;
             } else if (now - silenceStart > SILENCE_TIMEOUT) {
-              // Speech ended
               const speechDuration = now - speechStart;
               if (speechDuration >= MIN_SPEECH_DURATION) {
                 flushSegment();
@@ -121,9 +114,9 @@ export function useVAD({ onSpeechEnd, enabled }: UseVADProps) {
         };
 
         source.connect(processor);
-        processor.connect(audioContext.destination);
 
         cleanupRef.current = () => {
+          processor.port.close();
           processor.disconnect();
           source.disconnect();
           audioContext.close();

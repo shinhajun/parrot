@@ -1,6 +1,17 @@
 "use client";
 
 import { useRef, useCallback } from "react";
+
+// Detect Gemini hallucinations: timecodes, SRT/VTT artifacts, pure punctuation
+function isHallucination(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  // Timecode patterns: "00:00:01", "00:00:01 --> 00:00:05", "00:00:01,000"
+  if (/^\d{2}:\d{2}:\d{2}/.test(t)) return true;
+  // Only digits, colons, dashes, arrows, spaces
+  if (/^[\d\s:,.\-–—→>]+$/.test(t)) return true;
+  return false;
+}
 import { useVAD } from "./useVAD";
 import { float32ToWavBase64 } from "@/lib/audio";
 import { SUPABASE_FUNCTIONS_URL } from "@/lib/constants";
@@ -94,6 +105,10 @@ export function useTranslation({
 
           if (!originalText && !translatedText) {
             throw new Error("Empty translation result");
+          }
+
+          if (isHallucination(originalText) || isHallucination(translatedText)) {
+            throw new Error("Hallucination detected, skipping segment");
           }
 
           return { peerId, peerLang, originalText, translatedText };
