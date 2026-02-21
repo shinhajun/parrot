@@ -5,7 +5,8 @@ export type DataChannelMessage =
   | { type: "tts-audio"; audioBase64: string; segmentId: string }
   | { type: "language"; lang: LanguageCode }
   | { type: "voice-ready"; voiceId: string }
-  | { type: "mute-status"; isMuted: boolean };
+  | { type: "mute-status"; isMuted: boolean }
+  | { type: "camera-status"; isCameraOff: boolean };
 
 export interface TranslateRequest {
   audioBase64: string;

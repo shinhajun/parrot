@@ -27,6 +27,9 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId }: 
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
   const [peerLangs, setPeerLangs] = useState<Map<string, LanguageCode>>(new Map());
   const [peerMuted, setPeerMuted] = useState<Map<string, boolean>>(new Map());
+  const [peerCameraOff, setPeerCameraOff] = useState<Map<string, boolean>>(new Map());
+  const [locallyMutedPeers, setLocallyMutedPeers] = useState<Set<string>>(new Set());
+
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
 
@@ -74,6 +77,13 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId }: 
             return next;
           });
           break;
+        case "camera-status":
+          setPeerCameraOff((prev) => {
+            const next = new Map(prev);
+            next.set(fromPeerId, msg.isCameraOff);
+            return next;
+          });
+          break;
         case "voice-ready":
           break;
       }
@@ -81,8 +91,16 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId }: 
     [addSubtitle, playAudio]
   );
 
+  const isMutedRef = useRef(isMuted);
+  isMutedRef.current = isMuted;
+
+  const isCameraOffRef = useRef(isCameraOff);
+  isCameraOffRef.current = isCameraOff;
+
   const handlePeerConnected = useCallback((peerId: string) => {
     sendMessageToPeerRef.current(peerId, { type: "language", lang: langRef.current });
+    sendMessageToPeerRef.current(peerId, { type: "mute-status", isMuted: isMutedRef.current });
+    sendMessageToPeerRef.current(peerId, { type: "camera-status", isCameraOff: isCameraOffRef.current });
   }, []);
 
   const { remotePeers, isConnected, error, sendMessageToPeer, broadcastMessage } =
@@ -117,6 +135,10 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId }: 
     broadcastMessageRef.current({ type: "mute-status", isMuted });
   }, [isMuted]);
 
+  useEffect(() => {
+    broadcastMessageRef.current({ type: "camera-status", isCameraOff });
+  }, [isCameraOff]);
+
   const handleToggleMute = useCallback(() => {
     localStream.getAudioTracks().forEach((t) => {
       t.enabled = !t.enabled;
@@ -130,6 +152,18 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId }: 
     });
     setIsCameraOff((prev) => !prev);
   }, [localStream]);
+
+  const toggleLocalMute = useCallback((peerId: string) => {
+    setLocallyMutedPeers((prev) => {
+      const next = new Set(prev);
+      if (next.has(peerId)) {
+        next.delete(peerId);
+      } else {
+        next.add(peerId);
+      }
+      return next;
+    });
+  }, []);
 
   const handleLeave = useCallback(() => {
     localStream.getTracks().forEach((t) => t.stop());
@@ -190,6 +224,9 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId }: 
                   languageName={peerLang ? getLanguageName(peerLang) : undefined}
                   isSpeaking={false}
                   isMuted={isPeerMuted}
+                  isCameraOff={peerCameraOff.get(peer.peerId) ?? false}
+                  isLocallyMuted={locallyMutedPeers.has(peer.peerId)}
+                  onToggleLocalMute={() => toggleLocalMute(peer.peerId)}
                 />
                 <div className="w-full mt-2">
                   <SubtitleOverlay subtitles={peerSubtitles} compact />
