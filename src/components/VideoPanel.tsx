@@ -12,6 +12,8 @@ interface VideoPanelProps {
   isMuted?: boolean;
   isCameraOff?: boolean;
   isActive?: boolean;
+  isLocallyMuted?: boolean;
+  onToggleLocalMute?: () => void;
 }
 
 export default function VideoPanel({
@@ -23,6 +25,8 @@ export default function VideoPanel({
   isSpeaking = false,
   isMuted = false,
   isCameraOff = false,
+  isLocallyMuted = false,
+  onToggleLocalMute,
 }: VideoPanelProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -34,7 +38,7 @@ export default function VideoPanel({
 
   return (
     <div
-      className={`relative w-full aspect-video overflow-hidden rounded-2xl bg-white border shadow-sm transition-all duration-300 ${isSpeaking ? "speaking-glow" : "border-gray-100"
+      className={`group relative w-full aspect-video overflow-hidden rounded-2xl bg-white border shadow-sm transition-all duration-300 ${isSpeaking ? "speaking-glow" : "border-gray-100"
         }`}
     >
       {stream && !isCameraOff ? (
@@ -42,7 +46,7 @@ export default function VideoPanel({
           ref={videoRef}
           autoPlay
           playsInline
-          muted={muted}
+          muted={muted || isLocallyMuted}
           className="w-full h-full object-cover"
         />
       ) : (
@@ -67,12 +71,35 @@ export default function VideoPanel({
       )}
 
       {/* Bottom label bar */}
-      <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 py-2 bg-gradient-to-t from-black/40 to-transparent">
-        <span className="text-xs font-medium text-white drop-shadow-sm">
-          {label}
-        </span>
+      <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/60 via-black/20 to-transparent flex items-end justify-between opacity-100 transition-opacity duration-200">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-white drop-shadow-sm">
+            {label}
+          </span>
+          {onToggleLocalMute && (
+            <button
+              onClick={onToggleLocalMute}
+              className={`p-1.5 rounded-full backdrop-blur-md transition-colors ${isLocallyMuted
+                ? "bg-red-500/80 text-white hover:bg-red-500"
+                : "bg-black/30 text-white/90 hover:bg-black/50"
+                } opacity-0 group-hover:opacity-100`}
+              title={isLocallyMuted ? "Unmute peer" : "Mute peer locally"}
+            >
+              {isLocallyMuted ? (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                  <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0 1 10 4v12a1 1 0 0 1-1.707.707L4.586 13H2a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h2.586l3.707-3.707a1 1 0 0 1 1.09-.217ZM12.293 7.293a1 1 0 0 1 1.414 0L15 8.586l1.293-1.293a1 1 0 1 1 1.414 1.414L16.414 10l1.293 1.293a1 1 0 0 1-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 0 1-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 0 1 0-1.414Z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                  <path d="M7 4a3 3 0 0 1 6 0v6a3 3 0 1 1-6 0V4Z" />
+                  <path d="M5.5 9.643a.75.75 0 0 0-1.5 0V10c0 3.06 2.29 5.585 5.25 5.954V17.5h-1.5a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-1.5v-1.546A6.001 6.001 0 0 0 16 10v-.357a.75.75 0 0 0-1.5 0V10a4.5 4.5 0 0 1-9 0v-.357Z" />
+                </svg>
+              )}
+            </button>
+          )}
+        </div>
         {languageName && (
-          <span className="text-[10px] font-medium text-white/80 bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded-full">
+          <span className="text-[10px] font-medium text-white/90 bg-black/40 backdrop-blur-sm px-2 py-0.5 rounded-full shadow-sm">
             {languageName}
           </span>
         )}
