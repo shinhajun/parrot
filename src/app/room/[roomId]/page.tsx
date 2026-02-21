@@ -65,9 +65,9 @@ export default function RoomPage() {
                 onChange={(e) => setSelectedLang(e.target.value as LanguageCode)}
                 className="w-full appearance-none bg-white border border-gray-200 rounded-xl pl-11 pr-10 py-3.5 text-gray-900 text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer shadow-sm"
               >
-                {languageEntries.map(([code, { name, flag, english }]) => (
+                {languageEntries.map(([code, { name, english }]) => (
                   <option key={code} value={code}>
-                    {flag} {name} — {english}
+                    {name} — {english}
                   </option>
                 ))}
               </select>

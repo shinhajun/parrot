@@ -203,8 +203,8 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId, ni
       </div>
 
       {/* Video grid — responsive: stacked on mobile, side-by-side on desktop */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="flex flex-col gap-3 p-3 w-full md:flex-row md:gap-6 md:p-6 md:justify-center md:items-start md:max-w-6xl md:mx-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+        <div className="m-auto w-full flex flex-col gap-3 p-3 md:flex-row md:gap-6 md:p-6 md:justify-center md:items-start md:max-w-6xl">
           {/* Local video tile */}
           <div className="animate-pop-in flex flex-col items-center w-full md:flex-1 md:min-w-0 md:max-w-2xl">
             <VideoPanel
