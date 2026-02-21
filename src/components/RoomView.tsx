@@ -245,15 +245,14 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId, ni
         )}
       </div>
 
-<<<<<<< HEAD
       {/* Main Content Area (Video + Side Panel) */}
       <div className="flex-1 flex min-h-0 relative overflow-hidden">
 
-        {/* Video grid — horizontal fill */}
-        <div className="flex-1 flex items-center justify-center p-6 min-h-0 relative overflow-y-auto">
-          <div className="flex gap-6 justify-center items-start max-w-6xl w-full">
+        {/* Video grid — responsive: stacked on mobile, side-by-side on desktop */}
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+          <div className="m-auto w-full flex flex-col gap-3 p-3 md:flex-row md:gap-6 md:p-6 md:justify-center md:items-start md:max-w-6xl">
             {/* Local video tile */}
-            <div className="animate-pop-in flex flex-col items-center flex-1 min-w-0 max-w-2xl">
+            <div className="animate-pop-in flex flex-col items-center w-full md:flex-1 md:min-w-0 md:max-w-2xl">
               <VideoPanel
                 stream={localStream}
                 muted={true}
@@ -265,66 +264,9 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId, ni
                 isCameraOff={isCameraOff}
                 isLocal={true}
               />
-              <div className="w-full mt-2">
+              <div className="w-full mt-1.5">
                 <SubtitleOverlay subtitles={mySubtitles} compact />
               </div>
-=======
-      {/* Video grid — responsive: stacked on mobile, side-by-side on desktop */}
-      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
-        <div className="m-auto w-full flex flex-col gap-3 p-3 md:flex-row md:gap-6 md:p-6 md:justify-center md:items-start md:max-w-6xl">
-          {/* Local video tile */}
-          <div className="animate-pop-in flex flex-col items-center w-full md:flex-1 md:min-w-0 md:max-w-2xl">
-            <VideoPanel
-              stream={localStream}
-              muted={true}
-              label={`${nickname || "You"} ${getLanguageFlag(lang)}`}
-              languageFlag={getLanguageFlag(lang)}
-              languageName={getLanguageName(lang)}
-              isSpeaking={localIsSpeaking}
-              isMuted={isMuted}
-              isCameraOff={isCameraOff}
-            />
-            <div className="w-full mt-1.5">
-              <SubtitleOverlay subtitles={mySubtitles} compact />
-            </div>
-          </div>
-
-          {/* Remote peer tiles */}
-          {remotePeers.map((peer) => {
-            const peerLang = peerLangs.get(peer.peerId);
-            const isPeerMuted = peerMuted.get(peer.peerId) ?? false;
-            return (
-              <div key={peer.peerId} className="animate-pop-in flex flex-col items-center w-full md:flex-1 md:min-w-0 md:max-w-2xl">
-                <VideoPanel
-                  stream={peer.stream}
-                  muted={true}
-                  label={peerLang ? `${peerNicknames.get(peer.peerId) || "Peer"} ${getLanguageFlag(peerLang)}` : "Connecting..."}
-                  languageFlag={peerLang ? getLanguageFlag(peerLang) : undefined}
-                  languageName={peerLang ? getLanguageName(peerLang) : undefined}
-                  isSpeaking={false}
-                  isMuted={isPeerMuted}
-                  isCameraOff={peerCameraOff.get(peer.peerId) ?? false}
-                  isLocallyMuted={locallyMutedPeers.has(peer.peerId)}
-                  onToggleLocalMute={() => toggleLocalMute(peer.peerId)}
-                />
-                <div className="w-full mt-1.5">
-                  <SubtitleOverlay subtitles={peerSubtitles} compact />
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Waiting placeholder */}
-          {remotePeers.length === 0 && (
-            <div className="animate-pop-in flex flex-col items-center w-full md:flex-1 md:min-w-0 md:max-w-2xl">
-              <div className="w-full aspect-video rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center justify-center">
-                <div className="text-center space-y-3">
-                  <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto" />
-                  <p className="text-sm text-gray-400 font-medium">Waiting for peers...</p>
-                </div>
-              </div>
-              <div className="w-full mt-1.5 h-10" />
->>>>>>> main
             </div>
 
             {/* Remote peer tiles */}
@@ -332,7 +274,7 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId, ni
               const peerLang = peerLangs.get(peer.peerId);
               const isPeerMuted = peerMuted.get(peer.peerId) ?? false;
               return (
-                <div key={peer.peerId} className="animate-pop-in flex flex-col items-center flex-1 min-w-0 max-w-2xl">
+                <div key={peer.peerId} className="animate-pop-in flex flex-col items-center w-full md:flex-1 md:min-w-0 md:max-w-2xl">
                   <VideoPanel
                     stream={peer.stream}
                     muted={false}
@@ -345,7 +287,7 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId, ni
                     isLocallyMuted={locallyMutedPeers.has(peer.peerId)}
                     onToggleLocalMute={() => toggleLocalMute(peer.peerId)}
                   />
-                  <div className="w-full mt-2">
+                  <div className="w-full mt-1.5">
                     <SubtitleOverlay subtitles={peerSubtitles} compact />
                   </div>
                 </div>
@@ -354,14 +296,14 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId, ni
 
             {/* Waiting placeholder */}
             {remotePeers.length === 0 && (
-              <div className="animate-pop-in flex flex-col items-center flex-1 min-w-0 max-w-2xl">
+              <div className="animate-pop-in flex flex-col items-center w-full md:flex-1 md:min-w-0 md:max-w-2xl">
                 <div className="w-full aspect-video rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center justify-center">
                   <div className="text-center space-y-3">
                     <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto" />
                     <p className="text-sm text-gray-400 font-medium">Waiting for peers...</p>
                   </div>
                 </div>
-                <div className="w-full mt-2 h-12" />
+                <div className="w-full mt-1.5 h-10" />
               </div>
             )}
           </div>
@@ -394,16 +336,11 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId, ni
         )}
       </div>
 
-<<<<<<< HEAD
-      {/* Control bar */}
-      <div className="flex items-center justify-center py-4 px-6 bg-white border-t border-gray-100 shrink-0">
-=======
       {/* Control bar — with iOS safe area */}
       <div
         className="flex items-center justify-center px-6 pt-3 bg-white border-t border-gray-100"
         style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}
       >
->>>>>>> main
         <ControlBar
           isMuted={isMuted}
           onToggleMute={handleToggleMute}
