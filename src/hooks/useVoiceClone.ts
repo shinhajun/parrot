@@ -14,13 +14,13 @@ export interface UseVoiceCloneReturn {
   isCloning: boolean;
 }
 
-export function useVoiceClone(): UseVoiceCloneReturn {
-  const [voiceId, setVoiceId] = useState<string | null>(null);
+export function useVoiceClone(initialVoiceId?: string | null): UseVoiceCloneReturn {
+  const [voiceId, setVoiceId] = useState<string | null>(initialVoiceId ?? null);
   const [isCloning, setIsCloning] = useState(false);
 
   const audioChunksRef = useRef<Float32Array[]>([]);
   const totalDurationRef = useRef(0);
-  const clonedRef = useRef(false);
+  const clonedRef = useRef(!!initialVoiceId);
 
   const collectAudio = useCallback((audio: Float32Array) => {
     if (clonedRef.current) return;

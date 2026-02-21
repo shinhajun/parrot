@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import RoomView from "@/components/RoomView";
+import VoiceCloningSetup from "@/components/VoiceCloningSetup";
 import type { LanguageCode } from "@/lib/languages";
 import { LANGUAGES } from "@/lib/languages";
 
@@ -18,6 +19,8 @@ export default function RoomPage() {
   const [joined, setJoined] = useState(false);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [voiceId, setVoiceId] = useState<string | null>(null);
+  const [voiceCloneDone, setVoiceCloneDone] = useState(false);
   const requested = useRef(false);
 
   const handleJoin = () => {
@@ -127,5 +130,18 @@ export default function RoomPage() {
     );
   }
 
-  return <RoomView roomId={roomId} lang={selectedLang} localStream={localStream} />;
+  if (!voiceCloneDone) {
+    return (
+      <VoiceCloningSetup
+        localStream={localStream}
+        lang={selectedLang}
+        onComplete={(id) => {
+          setVoiceId(id);
+          setVoiceCloneDone(true);
+        }}
+      />
+    );
+  }
+
+  return <RoomView roomId={roomId} lang={selectedLang} localStream={localStream} initialVoiceId={voiceId} />;
 }

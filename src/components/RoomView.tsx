@@ -19,9 +19,10 @@ interface RoomViewProps {
   roomId: string;
   lang: LanguageCode;
   localStream: MediaStream;
+  initialVoiceId?: string | null;
 }
 
-export default function RoomView({ roomId, lang, localStream }: RoomViewProps) {
+export default function RoomView({ roomId, lang, localStream, initialVoiceId }: RoomViewProps) {
   const router = useRouter();
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
   const [peerLangs, setPeerLangs] = useState<Map<string, LanguageCode>>(new Map());
@@ -38,7 +39,7 @@ export default function RoomView({ roomId, lang, localStream }: RoomViewProps) {
   const sendMessageToPeerRef = useRef<(peerId: string, msg: DataChannelMessage) => void>(() => { });
 
   const { playAudio } = useAudioPlayer();
-  const { voiceId, collectAudio, isCloning } = useVoiceClone();
+  const { voiceId, collectAudio, isCloning } = useVoiceClone(initialVoiceId);
 
   // Speaking detection for local stream
   const localIsSpeaking = useAudioActivity(isMuted ? null : localStream);
@@ -217,7 +218,7 @@ export default function RoomView({ roomId, lang, localStream }: RoomViewProps) {
               <div key={peer.peerId} className="animate-pop-in flex flex-col items-center flex-1 min-w-0 max-w-2xl">
                 <VideoPanel
                   stream={peer.stream}
-                  muted={false}
+                  muted={true}
                   label={peerLang ? `Peer ${getLanguageFlag(peerLang)}` : "Connecting..."}
                   languageFlag={peerLang ? getLanguageFlag(peerLang) : undefined}
                   languageName={peerLang ? getLanguageName(peerLang) : undefined}
