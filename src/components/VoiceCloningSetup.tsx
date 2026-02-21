@@ -75,7 +75,11 @@ export default function VoiceCloningSetup({ localStream, lang, onComplete }: Pro
       const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/clone-voice`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audioBase64, name: `preclone-${Date.now()}` }),
+        body: JSON.stringify({
+          audioBase64,
+          name: `parrot-${Date.now()}`,
+          oldVoiceId: localStorage.getItem("parrot_voice_id") ?? undefined,
+        }),
       });
 
       if (!res.ok) throw new Error(`Clone failed: ${res.status}`);

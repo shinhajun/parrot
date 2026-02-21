@@ -46,7 +46,8 @@ export function useVoiceClone(initialVoiceId?: string | null): UseVoiceCloneRetu
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           audioBase64,
-          name: `clone-${Date.now()}`,
+          name: `parrot-${Date.now()}`,
+          oldVoiceId: localStorage.getItem("parrot_voice_id") ?? undefined,
         }),
       });
 
