@@ -36,13 +36,19 @@ serve(async (req: Request) => {
 
 Listen to this audio carefully. The speaker is speaking in ${sourceLang}.
 
-1. Transcribe exactly what the speaker said in ${sourceLang}.
+1. Transcribe ONLY the actual spoken words in ${sourceLang}.
 2. Translate the transcription into ${targetLang}.
+
+Rules:
+- Do NOT output timestamps, timecodes, or any subtitle formatting (e.g. "00:00:01", "-->").
+- Do NOT hallucinate or guess content that isn't clearly spoken.
+- Do NOT repeat the question or add any commentary.
+- If the audio contains only silence, noise, or unclear sounds with no intelligible speech, return empty strings.
 
 Return ONLY a JSON object with these exact fields:
 {"original": "<transcription in ${sourceLang}>", "translated": "<translation in ${targetLang}>"}
 
-If the audio is unclear or contains no speech, return:
+If there is no clear speech, return exactly:
 {"original": "", "translated": ""}`;
 
     const geminiResponse = await fetch(url, {
@@ -64,7 +70,7 @@ If the audio is unclear or contains no speech, return:
         ],
         generationConfig: {
           responseMimeType: "application/json",
-          temperature: 0.1,
+          temperature: 0,
         },
       }),
     });

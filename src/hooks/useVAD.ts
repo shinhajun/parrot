@@ -8,7 +8,7 @@ interface UseVADProps {
 }
 
 // Energy-based VAD using Web Audio API - no ONNX dependency
-const ENERGY_THRESHOLD = 0.01; // RMS energy threshold for speech
+const ENERGY_THRESHOLD = 0.02; // RMS energy threshold for speech
 const SILENCE_TIMEOUT = 800; // ms of silence before speech end
 const MIN_SPEECH_DURATION = 300; // ms minimum speech to trigger
 const MAX_SPEECH_DURATION = 12000; // ms max before force-flushing segment
