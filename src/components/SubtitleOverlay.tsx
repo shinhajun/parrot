@@ -21,7 +21,7 @@ export default function SubtitleOverlay({ subtitles, compact }: SubtitleOverlayP
 
   if (recent.length === 0) {
     return (
-      <div className={compact ? "h-12" : "h-16"}>
+      <div className={compact ? "min-h-[3rem]" : "min-h-[4rem]"}>
         <p className="text-xs text-gray-300 text-center pt-2">
           {compact ? "" : "Subtitles will appear here..."}
         </p>
@@ -30,7 +30,7 @@ export default function SubtitleOverlay({ subtitles, compact }: SubtitleOverlayP
   }
 
   return (
-    <div className={`${compact ? "h-12" : "h-16"} overflow-hidden space-y-1 flex flex-col justify-end`}>
+    <div className={`${compact ? "min-h-[3rem]" : "min-h-[4rem]"} space-y-1 flex flex-col justify-end`}>
       {recent.map((sub) => {
         const age = now - sub.timestamp;
         const faded = age > SUBTITLE_FADE_DURATION;
