@@ -55,6 +55,7 @@ export function useVoiceClone(initialVoiceId?: string | null): UseVoiceCloneRetu
       }
 
       const data: CloneVoiceResponse = await res.json();
+      localStorage.setItem("parrot_voice_id", data.voiceId);
       setVoiceId(data.voiceId);
     } catch (err) {
       console.error("Voice cloning failed:", err);

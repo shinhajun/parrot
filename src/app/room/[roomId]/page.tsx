@@ -1,11 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import RoomView from "@/components/RoomView";
 import VoiceCloningSetup from "@/components/VoiceCloningSetup";
 import type { LanguageCode } from "@/lib/languages";
 import { LANGUAGES } from "@/lib/languages";
+
+const VOICE_ID_KEY = "parrot_voice_id";
 
 export default function RoomPage() {
   const params = useParams<{ roomId: string }>();
@@ -14,15 +16,26 @@ export default function RoomPage() {
 
   const langParam = (searchParams.get("lang") ?? "en") as LanguageCode;
   const validInitialLang: LanguageCode = langParam in LANGUAGES ? langParam : "en";
-  const nickname = searchParams.get("nick") ?? "";
+  // nick from URL is only a suggestion — user can override on the join screen
+  const urlNick = searchParams.get("nick") ?? "";
 
   const [selectedLang, setSelectedLang] = useState<LanguageCode>(validInitialLang);
+  const [localNick, setLocalNick] = useState(urlNick);
   const [joined, setJoined] = useState(false);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [voiceId, setVoiceId] = useState<string | null>(null);
   const [voiceCloneDone, setVoiceCloneDone] = useState(false);
   const requested = useRef(false);
+
+  // Load cached voice ID from localStorage — skip cloning if already done
+  useEffect(() => {
+    const cached = localStorage.getItem(VOICE_ID_KEY);
+    if (cached) {
+      setVoiceId(cached);
+      setVoiceCloneDone(true);
+    }
+  }, []);
 
   const handleJoin = () => {
     if (requested.current) return;
@@ -35,13 +48,13 @@ export default function RoomPage() {
       .catch(() => setError("Camera and microphone access is required."));
   };
 
-  // Pre-join language selection screen
+  // Pre-join screen
   if (!joined) {
     const languageEntries = Object.entries(LANGUAGES) as [LanguageCode, typeof LANGUAGES[LanguageCode]][];
 
     return (
       <main className="flex min-h-screen items-center justify-center px-4 bg-gray-50">
-        <div className="w-full max-w-sm space-y-8 animate-pop-in">
+        <div className="w-full max-w-sm space-y-6 animate-pop-in">
           {/* Header */}
           <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Join Room</h1>
@@ -49,6 +62,19 @@ export default function RoomPage() {
               Room{" "}
               <span className="font-mono text-gray-600 bg-gray-100 px-2 py-0.5 rounded">{roomId}</span>
             </p>
+          </div>
+
+          {/* Nickname */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-500">Your name</label>
+            <input
+              type="text"
+              placeholder="Your name (optional)"
+              value={localNick}
+              onChange={(e) => setLocalNick(e.target.value)}
+              maxLength={32}
+              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base transition-colors shadow-sm"
+            />
           </div>
 
           {/* Language selection — dropdown */}
@@ -130,6 +156,7 @@ export default function RoomPage() {
         localStream={localStream}
         lang={selectedLang}
         onComplete={(id) => {
+          if (id) localStorage.setItem(VOICE_ID_KEY, id);
           setVoiceId(id);
           setVoiceCloneDone(true);
         }}
@@ -137,5 +164,13 @@ export default function RoomPage() {
     );
   }
 
-  return <RoomView roomId={roomId} lang={selectedLang} localStream={localStream} initialVoiceId={voiceId} nickname={nickname} />;
+  return (
+    <RoomView
+      roomId={roomId}
+      lang={selectedLang}
+      localStream={localStream}
+      initialVoiceId={voiceId}
+      nickname={localNick.trim()}
+    />
+  );
 }

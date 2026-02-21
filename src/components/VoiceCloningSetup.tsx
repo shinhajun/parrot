@@ -23,14 +23,14 @@ export default function VoiceCloningSetup({ localStream, lang, onComplete }: Pro
 
   const audioChunksRef = useRef<Float32Array[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const processorRef = useRef<AudioWorkletNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const MIN_SECONDS = 3;
   const canFinish = recordedSeconds >= MIN_SECONDS && isRecording;
 
-  const startRecording = useCallback(() => {
+  const startRecording = useCallback(async () => {
     audioChunksRef.current = [];
     setRecordedSeconds(0);
 
@@ -40,18 +40,16 @@ export default function VoiceCloningSetup({ localStream, lang, onComplete }: Pro
     const source = audioContext.createMediaStreamSource(localStream);
     sourceRef.current = source;
 
-    // ScriptProcessor collects raw Float32 PCM
-    const processor = audioContext.createScriptProcessor(4096, 1, 1);
+    await audioContext.audioWorklet.addModule("/vad-processor.worklet.js");
+    const processor = new AudioWorkletNode(audioContext, "vad-processor");
     processorRef.current = processor;
 
-    processor.onaudioprocess = (e) => {
-      const input = e.inputBuffer.getChannelData(0);
-      audioChunksRef.current.push(new Float32Array(input));
+    processor.port.onmessage = (e) => {
+      const chunk = e.data.samples as Float32Array;
+      audioChunksRef.current.push(chunk);
     };
 
     source.connect(processor);
-    processor.connect(audioContext.destination);
-
     setIsRecording(true);
 
     timerRef.current = setInterval(() => {
@@ -62,6 +60,7 @@ export default function VoiceCloningSetup({ localStream, lang, onComplete }: Pro
   const stopAndClone = useCallback(async () => {
     // Stop recording
     if (timerRef.current) clearInterval(timerRef.current);
+    processorRef.current?.port.close();
     processorRef.current?.disconnect();
     sourceRef.current?.disconnect();
     audioContextRef.current?.close();

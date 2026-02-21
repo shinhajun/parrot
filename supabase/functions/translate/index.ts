@@ -93,7 +93,12 @@ If there is no clear speech, return exactly:
       );
     }
 
-    const parsed = JSON.parse(textContent);
+    // Gemini sometimes wraps JSON in markdown code blocks — strip them
+    let jsonText = textContent.trim();
+    const codeBlock = jsonText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (codeBlock) jsonText = codeBlock[1].trim();
+
+    const parsed = JSON.parse(jsonText);
 
     return new Response(
       JSON.stringify({

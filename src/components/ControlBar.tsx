@@ -23,7 +23,10 @@ export function ControlBar({
 
   const handleShare = async () => {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      // Strip nick from shared URL so recipients use their own name
+      const url = new URL(window.location.href);
+      url.searchParams.delete("nick");
+      await navigator.clipboard.writeText(url.toString());
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
