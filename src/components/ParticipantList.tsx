@@ -35,13 +35,13 @@ export function ParticipantList({ participants, onClose, onToggleLocalMute }: Pa
 
             <div className="flex-1 overflow-y-auto py-2">
                 {participants.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between px-4 py-2 hover:bg-gray-50 transition-colors group">
+                    <div key={p.id} className={`flex items-center justify-between px-4 py-2 transition-colors group ${p.isLocal ? "bg-blue-50/50 hover:bg-blue-50" : "hover:bg-gray-50"}`}>
                         <div className="flex items-center gap-3 min-w-0">
                             <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold text-sm flex-shrink-0">
                                 {p.name.charAt(0).toUpperCase()}
                             </div>
                             <div className="flex flex-col min-w-0">
-                                <span className="text-sm font-medium text-gray-700 truncate">
+                                <span className={`text-sm font-medium truncate ${p.isLocal ? "text-blue-700" : "text-gray-700"}`}>
                                     {p.name} {p.isLocal && "(You)"} {p.lang && getLanguageFlag(p.lang)}
                                 </span>
                                 {p.lang && (
@@ -72,8 +72,8 @@ export function ParticipantList({ participants, onClose, onToggleLocalMute }: Pa
                                 <button
                                     onClick={() => onToggleLocalMute(p.id)}
                                     className={`p-1.5 rounded-md transition-all ${p.isLocallyMuted
-                                            ? "bg-red-50 text-red-500 hover:bg-red-100 opacity-100"
-                                            : "text-gray-400 hover:text-gray-600 hover:bg-gray-100 opacity-0 group-hover:opacity-100 border border-transparent"
+                                        ? "bg-red-50 text-red-500 hover:bg-red-100 opacity-100"
+                                        : "text-gray-400 hover:text-gray-600 hover:bg-gray-100 opacity-0 group-hover:opacity-100 border border-transparent"
                                         }`}
                                     title={p.isLocallyMuted ? "Unmute locally" : "Mute locally"}
                                 >

@@ -235,12 +235,13 @@ export default function RoomView({ roomId, lang, localStream, initialVoiceId, ni
               <VideoPanel
                 stream={localStream}
                 muted={true}
-                label={`${nickname || "You"} ${getLanguageFlag(lang)}`}
+                label={`${nickname ? `${nickname} (You)` : "You"} ${getLanguageFlag(lang)}`}
                 languageFlag={getLanguageFlag(lang)}
                 languageName={getLanguageName(lang)}
                 isSpeaking={localIsSpeaking}
                 isMuted={isMuted}
                 isCameraOff={isCameraOff}
+                isLocal={true}
               />
               <div className="w-full mt-2">
                 <SubtitleOverlay subtitles={mySubtitles} compact />
