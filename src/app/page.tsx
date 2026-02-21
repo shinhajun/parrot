@@ -31,18 +31,18 @@ export default function Home() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4">
+    <main className="flex min-h-screen items-center justify-center px-4 bg-white">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center space-y-2">
-          <h1 className="text-5xl font-bold tracking-tight">BabelRoom</h1>
-          <p className="text-slate-400 text-lg">
+          <h1 className="text-5xl font-bold tracking-tight text-gray-900">Parrot</h1>
+          <p className="text-gray-400 text-lg">
             Real-time video translation
           </p>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-5">
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-slate-300">
+            <label className="block text-sm font-medium text-gray-600">
               Language
             </label>
             <LanguageSelector value={lang} onChange={setLang} />
@@ -50,15 +50,15 @@ export default function Home() {
 
           <button
             onClick={createRoom}
-            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-colors text-lg"
+            className="w-full py-3 px-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl transition-all duration-200 text-base shadow-sm hover:shadow-md"
           >
             Create Room
           </button>
 
           <div className="flex items-center gap-3">
-            <div className="h-px flex-1 bg-slate-800" />
-            <span className="text-slate-500 text-sm">or join a room</span>
-            <div className="h-px flex-1 bg-slate-800" />
+            <div className="h-px flex-1 bg-gray-100" />
+            <span className="text-gray-400 text-xs font-medium uppercase tracking-wider">or join a room</span>
+            <div className="h-px flex-1 bg-gray-100" />
           </div>
 
           <div className="flex gap-3">
@@ -69,12 +69,12 @@ export default function Home() {
               onChange={(e) => setRoomCode(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && joinRoom()}
               maxLength={8}
-              className="flex-1 px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg"
+              className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base transition-colors"
             />
             <button
               onClick={joinRoom}
               disabled={!roomCode.trim()}
-              className="px-6 py-3 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors text-lg"
+              className="px-6 py-3 bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed text-gray-700 font-semibold rounded-xl transition-all duration-200 text-base"
             >
               Join
             </button>

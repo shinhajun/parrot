@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { LanguageCode } from "@/lib/languages";
 import { getLanguageFlag, getLanguageName } from "@/lib/languages";
@@ -9,6 +9,7 @@ import { useWebRTC } from "@/hooks/useWebRTC";
 import { useVoiceClone } from "@/hooks/useVoiceClone";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
+import { useAudioActivity } from "@/hooks/useAudioActivity";
 import VideoPanel from "./VideoPanel";
 import SubtitleOverlay from "./SubtitleOverlay";
 import { ControlBar } from "./ControlBar";
@@ -24,17 +25,20 @@ export default function RoomView({ roomId, lang, localStream }: RoomViewProps) {
   const router = useRouter();
   const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
   const [peerLangs, setPeerLangs] = useState<Map<string, LanguageCode>>(new Map());
+  const [peerMuted, setPeerMuted] = useState<Map<string, boolean>>(new Map());
   const [isMuted, setIsMuted] = useState(false);
   const [isCameraOff, setIsCameraOff] = useState(false);
 
   const langRef = useRef(lang);
   langRef.current = lang;
 
-  // Ref to sendMessageToPeer so handlePeerConnected can use it before the hook returns
-  const sendMessageToPeerRef = useRef<(peerId: string, msg: DataChannelMessage) => void>(() => {});
+  const sendMessageToPeerRef = useRef<(peerId: string, msg: DataChannelMessage) => void>(() => { });
 
   const { playAudio } = useAudioPlayer();
   const { voiceId, collectAudio, isCloning } = useVoiceClone();
+
+  // Speaking detection for local stream
+  const localIsSpeaking = useAudioActivity(isMuted ? null : localStream);
 
   const addSubtitle = useCallback((subtitle: Subtitle) => {
     setSubtitles((prev) => [...prev.slice(-9), subtitle]);
@@ -62,6 +66,13 @@ export default function RoomView({ roomId, lang, localStream }: RoomViewProps) {
             return next;
           });
           break;
+        case "mute-status":
+          setPeerMuted((prev) => {
+            const next = new Map(prev);
+            next.set(fromPeerId, msg.isMuted);
+            return next;
+          });
+          break;
         case "voice-ready":
           break;
       }
@@ -69,7 +80,6 @@ export default function RoomView({ roomId, lang, localStream }: RoomViewProps) {
     [addSubtitle, playAudio]
   );
 
-  // Stable callback: uses refs so it doesn't change between renders
   const handlePeerConnected = useCallback((peerId: string) => {
     sendMessageToPeerRef.current(peerId, { type: "language", lang: langRef.current });
   }, []);
@@ -82,10 +92,8 @@ export default function RoomView({ roomId, lang, localStream }: RoomViewProps) {
       onPeerConnected: handlePeerConnected,
     });
 
-  // Keep ref in sync with latest sendMessageToPeer
   sendMessageToPeerRef.current = sendMessageToPeer;
 
-  // Derive peerTargets: only peers whose language we know
   const peerTargets = remotePeers
     .filter((peer) => peerLangs.has(peer.peerId))
     .map((peer) => ({ peerId: peer.peerId, lang: peerLangs.get(peer.peerId)! }));
@@ -100,8 +108,13 @@ export default function RoomView({ roomId, lang, localStream }: RoomViewProps) {
     enabled: peerTargets.length > 0 && !isMuted,
   });
 
-  // Suppress unused warning for broadcastMessage (available for future use)
-  void broadcastMessage;
+  // Broadcast mute status to all peers
+  const broadcastMessageRef = useRef(broadcastMessage);
+  broadcastMessageRef.current = broadcastMessage;
+
+  useEffect(() => {
+    broadcastMessageRef.current({ type: "mute-status", isMuted });
+  }, [isMuted]);
 
   const handleToggleMute = useCallback(() => {
     localStream.getAudioTracks().forEach((t) => {
@@ -122,82 +135,85 @@ export default function RoomView({ roomId, lang, localStream }: RoomViewProps) {
     router.push("/");
   }, [localStream, router]);
 
+  // Filter subtitles for local user vs peers
+  const mySubtitles = subtitles.filter((s) => s.isMine);
+  const peerSubtitles = subtitles.filter((s) => !s.isMine);
+
   return (
-    <div className="flex flex-col h-screen bg-slate-950">
+    <div className="flex flex-col h-screen bg-gray-50">
       {/* Top bar */}
-      <div className="relative flex items-center justify-center px-4 py-2 bg-slate-900/60 border-b border-slate-800/50">
-        <span className="text-sm font-semibold text-slate-300 tracking-wide">BabelRoom</span>
-        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+      <div className="relative flex items-center justify-center px-6 py-3 bg-white border-b border-gray-100">
+        <span className="text-sm font-semibold text-gray-800 tracking-wide">Parrot</span>
+        <div className="absolute right-4 top-1/2 -translate-y-1/2">
           <ConnectionStatus isConnected={isConnected} error={error} />
         </div>
         {isCloning && (
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-2 py-1 bg-purple-600/80 rounded-full text-xs">
-            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-3 py-1 bg-blue-50 border border-blue-200 rounded-full text-xs text-blue-700">
+            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
             <span>Cloning voice...</span>
           </div>
         )}
       </div>
 
-      {/* Video grid — 2-column layout, local video last */}
-      <div className="flex-1 grid grid-cols-2 gap-3 p-4 min-h-0">
-        {remotePeers.map((peer) => {
-          const peerLang = peerLangs.get(peer.peerId);
-          return (
-            <div key={peer.peerId} className="relative rounded-2xl overflow-hidden bg-slate-900">
-              <VideoPanel
-                stream={peer.stream}
-                muted={false}
-                label={peerLang ? `Peer ${getLanguageFlag(peerLang)}` : "Connecting..."}
-                languageFlag={peerLang ? getLanguageFlag(peerLang) : undefined}
-              />
-              {peerLang && (
-                <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 rounded text-xs text-slate-300">
-                  {getLanguageName(peerLang)}
-                </div>
-              )}
-              {!peer.stream && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center space-y-2">
-                    <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto" />
-                    <p className="text-sm text-slate-400">Connecting...</p>
-                  </div>
-                </div>
-              )}
+      {/* Video grid — horizontal fill */}
+      <div className="flex-1 flex items-center justify-center p-6 min-h-0">
+        <div className="flex gap-6 justify-center items-start max-w-6xl w-full">
+          {/* Local video tile */}
+          <div className="animate-pop-in flex flex-col items-center flex-1 min-w-0 max-w-2xl">
+            <VideoPanel
+              stream={localStream}
+              muted={true}
+              label={`You ${getLanguageFlag(lang)}`}
+              languageFlag={getLanguageFlag(lang)}
+              languageName={getLanguageName(lang)}
+              isSpeaking={localIsSpeaking}
+              isMuted={isMuted}
+              isCameraOff={isCameraOff}
+            />
+            <div className="w-full mt-2">
+              <SubtitleOverlay subtitles={mySubtitles} compact />
             </div>
-          );
-        })}
-
-        {/* Local video */}
-        <div className="relative rounded-2xl overflow-hidden">
-          <VideoPanel
-            stream={localStream}
-            muted={true}
-            label={`You ${getLanguageFlag(lang)}`}
-            languageFlag={getLanguageFlag(lang)}
-          />
-          <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 rounded text-xs text-slate-300">
-            {getLanguageName(lang)}
           </div>
+
+          {/* Remote peer tiles */}
+          {remotePeers.map((peer) => {
+            const peerLang = peerLangs.get(peer.peerId);
+            const isPeerMuted = peerMuted.get(peer.peerId) ?? false;
+            return (
+              <div key={peer.peerId} className="animate-pop-in flex flex-col items-center flex-1 min-w-0 max-w-2xl">
+                <VideoPanel
+                  stream={peer.stream}
+                  muted={false}
+                  label={peerLang ? `Peer ${getLanguageFlag(peerLang)}` : "Connecting..."}
+                  languageFlag={peerLang ? getLanguageFlag(peerLang) : undefined}
+                  languageName={peerLang ? getLanguageName(peerLang) : undefined}
+                  isSpeaking={false}
+                  isMuted={isPeerMuted}
+                />
+                <div className="w-full mt-2">
+                  <SubtitleOverlay subtitles={peerSubtitles} compact />
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Waiting placeholder */}
+          {remotePeers.length === 0 && (
+            <div className="animate-pop-in flex flex-col items-center flex-1 min-w-0 max-w-2xl">
+              <div className="w-full aspect-video rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center justify-center">
+                <div className="text-center space-y-3">
+                  <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto" />
+                  <p className="text-sm text-gray-400 font-medium">Waiting for peers...</p>
+                </div>
+              </div>
+              <div className="w-full mt-2 h-12" />
+            </div>
+          )}
         </div>
-
-        {/* Waiting placeholder when no remote peers yet */}
-        {remotePeers.length === 0 && (
-          <div className="relative rounded-2xl overflow-hidden bg-slate-900 flex items-center justify-center">
-            <div className="text-center space-y-2">
-              <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto" />
-              <p className="text-sm text-slate-400">Waiting for peers...</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Subtitle area */}
-      <div className="px-4 pb-2">
-        <SubtitleOverlay subtitles={subtitles} />
       </div>
 
       {/* Control bar */}
-      <div className="flex items-center justify-center py-3 px-4 bg-slate-900/60 border-t border-slate-800/50">
+      <div className="flex items-center justify-center py-4 px-6 bg-white border-t border-gray-100">
         <ControlBar
           isMuted={isMuted}
           onToggleMute={handleToggleMute}

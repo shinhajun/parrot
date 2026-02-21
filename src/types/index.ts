@@ -4,7 +4,8 @@ export type DataChannelMessage =
   | { type: "subtitle"; original: string; translated: string; segmentId: string }
   | { type: "tts-audio"; audioBase64: string; segmentId: string }
   | { type: "language"; lang: LanguageCode }
-  | { type: "voice-ready"; voiceId: string };
+  | { type: "voice-ready"; voiceId: string }
+  | { type: "mute-status"; isMuted: boolean };
 
 export interface TranslateRequest {
   audioBase64: string;
