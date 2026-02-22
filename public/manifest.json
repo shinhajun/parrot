@@ -1,6 +1,6 @@
 {
-  "name": "BabelRoom",
-  "short_name": "BabelRoom",
+  "name": "Parrot",
+  "short_name": "Parrot",
   "description": "Real-time video call translator with voice cloning",
   "start_url": "/",
   "display": "standalone",

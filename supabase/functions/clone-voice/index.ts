@@ -48,10 +48,10 @@ serve(async (req: Request) => {
     });
 
     if (!cloneResponse.ok) {
-      const errorText = await cloneResponse.text();
+      await cloneResponse.text();
       return new Response(
-        JSON.stringify({ error: "ElevenLabs API error", details: errorText }),
-        { status: cloneResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({ error: "Voice cloning service error" }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -75,8 +75,9 @@ serve(async (req: Request) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
+    console.error("clone-voice error:", error);
     return new Response(
-      JSON.stringify({ error: "Internal server error", details: String(error) }),
+      JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }

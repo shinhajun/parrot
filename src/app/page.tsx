@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 
 function generateRoomCode(): string {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const values = crypto.getRandomValues(new Uint32Array(8));
   let code = "";
   for (let i = 0; i < 8; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
+    code += chars[values[i] % chars.length];
   }
   return code;
 }

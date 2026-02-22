@@ -31,7 +31,7 @@ serve(async (req: Request) => {
       );
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
+    const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
 
     const prompt = `You are a speech transcription and translation assistant.
 
@@ -55,7 +55,7 @@ If there is no clear speech, return exactly:
     const t1 = Date.now();
     const geminiResponse = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
       body: JSON.stringify({
         contents: [
           {
@@ -81,10 +81,10 @@ If there is no clear speech, return exactly:
     });
 
     if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
+      await geminiResponse.text();
       return new Response(
-        JSON.stringify({ error: "Gemini API error", details: errorText }),
-        { status: geminiResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({ error: "Translation service error" }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -115,8 +115,9 @@ If there is no clear speech, return exactly:
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
+    console.error("translate error:", error);
     return new Response(
-      JSON.stringify({ error: "Internal server error", details: String(error) }),
+      JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }

@@ -56,10 +56,10 @@ serve(async (req: Request) => {
     });
 
     if (!ttsResponse.ok) {
-      const errorText = await ttsResponse.text();
+      await ttsResponse.text();
       return new Response(
-        JSON.stringify({ error: "ElevenLabs API error", details: errorText }),
-        { status: ttsResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({ error: "TTS service error" }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -73,8 +73,9 @@ serve(async (req: Request) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
+    console.error("tts error:", error);
     return new Response(
-      JSON.stringify({ error: "Internal server error", details: String(error) }),
+      JSON.stringify({ error: "Internal server error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }

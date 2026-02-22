@@ -8,8 +8,8 @@
 		"directory": ".open-next/assets",
 		"binding": "ASSETS"
 	},
-	"vars": {
-		"NEXT_PUBLIC_SUPABASE_URL": "https://iamrpfgkrcasgvojkrey.supabase.co",
-		"NEXT_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_hUbe6sGlt208_sJaYqgArg_WPIjwJKo"
-	}
+	// NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are set via
+	// Cloudflare dashboard (Settings > Variables) or `wrangler secret put`.
+	// Never commit secrets to this file.
+	"vars": {}
 }
