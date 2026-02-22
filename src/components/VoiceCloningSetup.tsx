@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { motion } from "framer-motion";
 import type { LanguageCode } from "@/lib/languages";
 import {
   SAMPLE_SENTENCES,
   SUPABASE_FUNCTIONS_URL,
 } from "@/lib/constants";
 import { float32ToWavBase64, concatenateFloat32Arrays } from "@/lib/audio";
+import { AuroraBackground } from "@/components/ui/aurora-background";
 import type { CloneVoiceResponse } from "@/types";
 
 interface Props {
@@ -96,39 +98,40 @@ export default function VoiceCloningSetup({ localStream, lang, onComplete }: Pro
   }, [onComplete]);
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 bg-gray-50">
-      <div className="w-full max-w-lg space-y-8 animate-pop-in">
-        {/* Header */}
+    <AuroraBackground>
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.6, ease: "easeOut" }}
+        className="relative z-10 w-full max-w-lg space-y-8 px-4"
+      >
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Register Your Voice</h1>
-          <p className="text-gray-400 text-sm">
+          <p className="text-gray-500 text-sm">
             Read the sentence below aloud so we can clone your voice for translation.
           </p>
         </div>
 
-        {/* Sample sentence card */}
-        <div className="bg-white border border-gray-100 rounded-2xl px-6 py-5 shadow-sm text-center">
+        <div className="bg-white/70 backdrop-blur-xl rounded-2xl px-6 py-5 shadow-lg border border-white/50 text-center">
           <p className="text-gray-700 text-lg leading-relaxed font-medium">
             {SAMPLE_SENTENCES[lang]}
           </p>
         </div>
 
-        {/* Recording status */}
         {isRecording && (
-          <div className="flex items-center justify-center gap-3 text-sm text-gray-500">
+          <div className="flex items-center justify-center gap-3 text-sm text-gray-600">
             <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-            <span>Recording… {recordedSeconds}s</span>
+            <span>Recording... {recordedSeconds}s</span>
             {recordedSeconds < MIN_SECONDS && (
               <span className="text-gray-400">({MIN_SECONDS - recordedSeconds}s more needed)</span>
             )}
           </div>
         )}
 
-        {/* Processing / done state */}
         {isProcessing && !isDone && (
           <div className="flex items-center justify-center gap-3 text-sm text-blue-600">
             <span className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-            <span>Processing voice clone…</span>
+            <span>Processing voice clone...</span>
           </div>
         )}
         {isDone && (
@@ -136,11 +139,10 @@ export default function VoiceCloningSetup({ localStream, lang, onComplete }: Pro
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
             </svg>
-            Voice registered! Entering room…
+            Voice registered! Entering room...
           </div>
         )}
 
-        {/* Action buttons */}
         {!isProcessing && !isDone && (
           <div className="flex flex-col gap-3">
             {!isRecording ? (
@@ -161,19 +163,19 @@ export default function VoiceCloningSetup({ localStream, lang, onComplete }: Pro
                     : "bg-gray-100 text-gray-400 cursor-not-allowed"
                 }`}
               >
-                Done — Register Voice
+                Done - Register Voice
               </button>
             )}
 
             <button
               onClick={() => onComplete(null)}
-              className="w-full py-2.5 text-gray-400 hover:text-gray-600 text-sm font-medium transition-colors"
+              className="w-full py-2.5 text-gray-500 hover:text-gray-700 text-sm font-medium transition-colors"
             >
               Skip (use default voice)
             </button>
           </div>
         )}
-      </div>
-    </main>
+      </motion.div>
+    </AuroraBackground>
   );
 }
