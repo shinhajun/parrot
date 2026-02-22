@@ -12,6 +12,7 @@ serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const t0 = Date.now();
   try {
     const { audioBase64, sourceLang, targetLang } = await req.json();
 
@@ -51,6 +52,7 @@ Return ONLY a JSON object with these exact fields:
 If there is no clear speech, return exactly:
 {"original": "", "translated": ""}`;
 
+    const t1 = Date.now();
     const geminiResponse = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -71,6 +73,9 @@ If there is no clear speech, return exactly:
         generationConfig: {
           responseMimeType: "application/json",
           temperature: 0,
+          thinkingConfig: {
+            thinkingBudget: 0,
+          },
         },
       }),
     });
@@ -83,6 +88,8 @@ If there is no clear speech, return exactly:
       );
     }
 
+    const t2 = Date.now();
+    console.log(`[translate] gemini=${t2 - t1}ms total=${t2 - t0}ms`);
     const geminiData = await geminiResponse.json();
     const textContent = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
 

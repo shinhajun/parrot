@@ -15,6 +15,7 @@ serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const t0 = Date.now();
   try {
     const { text, voiceId, languageCode } = await req.json();
 
@@ -36,6 +37,7 @@ serve(async (req: Request) => {
     const selectedVoiceId = voiceId || DEFAULT_VOICE_ID;
     const url = `https://api.elevenlabs.io/v1/text-to-speech/${selectedVoiceId}?output_format=mp3_22050_32`;
 
+    const t1 = Date.now();
     const ttsResponse = await fetch(url, {
       method: "POST",
       headers: {
@@ -61,6 +63,8 @@ serve(async (req: Request) => {
       );
     }
 
+    const t2 = Date.now();
+    console.log(`[tts] elevenlabs=${t2 - t1}ms total=${t2 - t0}ms`);
     const audioBuffer = await ttsResponse.arrayBuffer();
     const audioBase64 = base64Encode(new Uint8Array(audioBuffer));
 
