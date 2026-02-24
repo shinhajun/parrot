@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { SUPABASE_FUNCTIONS_URL } from "@/lib/constants";
 import type { DataChannelMessage } from "@/types";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
@@ -36,12 +37,30 @@ interface PeerState {
   stream: MediaStream | null;
 }
 
-const RTC_CONFIG: RTCConfiguration = {
+const FALLBACK_RTC_CONFIG: RTCConfiguration = {
   iceServers: [
+    { urls: "stun:stun.cloudflare.com:3478" },
     { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
   ],
 };
+
+async function fetchIceServers(): Promise<RTCConfiguration> {
+  try {
+    const res = await fetch(`${SUPABASE_FUNCTIONS_URL}/get-turn-credentials`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.iceServers) {
+        return { iceServers: data.iceServers };
+      }
+    }
+  } catch {
+    // fallback to STUN only
+  }
+  return FALLBACK_RTC_CONFIG;
+}
 
 export function useWebRTC({
   roomId,
@@ -51,6 +70,7 @@ export function useWebRTC({
 }: UseWebRTCProps): UseWebRTCReturn {
   const [remotePeers, setRemotePeers] = useState<RemotePeer[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [rtcConfig, setRtcConfig] = useState<RTCConfiguration | null>(null);
 
   const peerMapRef = useRef<Map<string, PeerState>>(new Map());
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -62,6 +82,14 @@ export function useWebRTC({
   useEffect(() => { onDataChannelMessageRef.current = onDataChannelMessage; }, [onDataChannelMessage]);
   useEffect(() => { onPeerConnectedRef.current = onPeerConnected; }, [onPeerConnected]);
   useEffect(() => { localStreamRef.current = localStream; }, [localStream]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchIceServers().then((config) => {
+      if (!cancelled) setRtcConfig(config);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const isConnected = remotePeers.length > 0;
 
@@ -89,7 +117,7 @@ export function useWebRTC({
   }, []);
 
   useEffect(() => {
-    if (!roomId || !localStream) return;
+    if (!roomId || !localStream || !rtcConfig) return;
 
     const localId = localIdRef.current;
     let isCleaned = false;
@@ -121,7 +149,7 @@ export function useWebRTC({
     }
 
     function createPeerConnection(peerId: string): RTCPeerConnection {
-      const pc = new RTCPeerConnection(RTC_CONFIG);
+      const pc = new RTCPeerConnection(rtcConfig);
       const stream = localStreamRef.current;
       if (stream) {
         stream.getTracks().forEach((track) => {
@@ -305,7 +333,7 @@ export function useWebRTC({
       setRemotePeers([]);
       setError(null);
     };
-  }, [roomId, localStream, rebuildPeers]);
+  }, [roomId, localStream, rtcConfig, rebuildPeers]);
 
   return { remotePeers, isConnected, error, sendMessageToPeer, broadcastMessage };
 }
