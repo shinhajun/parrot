@@ -149,7 +149,7 @@ export function useWebRTC({
     }
 
     function createPeerConnection(peerId: string): RTCPeerConnection {
-      const pc = new RTCPeerConnection(rtcConfig);
+      const pc = new RTCPeerConnection(rtcConfig!);
       const stream = localStreamRef.current;
       if (stream) {
         stream.getTracks().forEach((track) => {
